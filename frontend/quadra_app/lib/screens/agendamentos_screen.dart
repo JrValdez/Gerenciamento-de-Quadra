@@ -131,7 +131,17 @@ class _AgendamentosScreenState extends State<AgendamentosScreen> {
                 ],
               ),
             ),
-            Expanded(child: Text(moeda.format(a.valorTotal))),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(moeda.format(a.valorTotal)),
+                  if (a.cupomCodigo != null && a.cupomCodigo!.isNotEmpty)
+                    Text('${a.cupomCodigo} (-${moeda.format(a.valorDesconto)})',
+                        style: const TextStyle(color: Color(0xFF1B7A3D), fontSize: 11)),
+                ],
+              ),
+            ),
             Chip(
               label: Text(a.statusLabel),
               backgroundColor: _cores[a.status].withValues(alpha: 0.15),

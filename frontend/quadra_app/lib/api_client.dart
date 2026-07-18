@@ -142,6 +142,24 @@ class ApiClient {
 
   Future<void> excluirBloqueio(String id) async => await _delete('/bloqueios/$id');
 
+  // ---------- Cupons ----------
+  Future<List<Cupom>> cupons({bool incluirInativos = false}) async {
+    final data = await _get('/cupons', {'incluirInativos': incluirInativos});
+    return (data as List).map((e) => Cupom.fromJson(e)).toList();
+  }
+
+  Future<Cupom> criarCupom(Map<String, dynamic> body) async =>
+      Cupom.fromJson(await _post('/cupons', body));
+
+  Future<Cupom> atualizarCupom(String id, Map<String, dynamic> body) async =>
+      Cupom.fromJson(await _put('/cupons/$id', body));
+
+  Future<void> excluirCupom(String id) async => await _delete('/cupons/$id');
+
+  /// Valida um cupom pelo código; lança [ApiException] se inválido/expirado.
+  Future<Cupom> validarCupom(String codigo) async =>
+      Cupom.fromJson(await _get('/cupons/validar/${Uri.encodeComponent(codigo)}'));
+
   // ---------- Produtos ----------
   Future<List<Produto>> produtos({bool incluirInativos = false}) async {
     final data = await _get('/produtos', {'incluirInativos': incluirInativos});

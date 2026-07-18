@@ -285,15 +285,67 @@ class _ReservaDialogState extends State<_ReservaDialog> {
   final _nome = TextEditingController();
   final _telefone = TextEditingController();
   final _email = TextEditingController();
+  final _cupom = TextEditingController();
   bool _enviando = false;
+  bool _validandoCupom = false;
+  Cupom? _cupomAplicado;
+  String? _cupomErro;
   String? _erro;
+
+  /// Preço da reserva (o slot cobre exatamente 1 hora).
+  double get _bruto =>
+      widget.quadra.precoHora * widget.slot.fim.difference(widget.slot.inicio).inMinutes / 60;
+
+  double get _desconto {
+    final c = _cupomAplicado;
+    if (c == null) return 0;
+    final d = c.tipo == 0 ? _bruto * c.valor / 100 : c.valor;
+    return d > _bruto ? _bruto : d;
+  }
+
+  double get _total => _bruto - _desconto;
 
   @override
   void dispose() {
     _nome.dispose();
     _telefone.dispose();
     _email.dispose();
+    _cupom.dispose();
     super.dispose();
+  }
+
+  Future<void> _aplicarCupom() async {
+    final codigo = _cupom.text.trim();
+    if (codigo.isEmpty) {
+      setState(() {
+        _cupomAplicado = null;
+        _cupomErro = null;
+      });
+      return;
+    }
+    setState(() {
+      _validandoCupom = true;
+      _cupomErro = null;
+    });
+    try {
+      final c = await widget.api.validarCupom(codigo);
+      setState(() {
+        _cupomAplicado = c;
+        _validandoCupom = false;
+      });
+    } on ApiException catch (e) {
+      setState(() {
+        _cupomAplicado = null;
+        _cupomErro = e.message;
+        _validandoCupom = false;
+      });
+    } catch (_) {
+      setState(() {
+        _cupomAplicado = null;
+        _cupomErro = 'Não foi possível validar o cupom.';
+        _validandoCupom = false;
+      });
+    }
   }
 
   Future<void> _confirmar() async {
@@ -310,6 +362,7 @@ class _ReservaDialogState extends State<_ReservaDialog> {
         'nomeCliente': _nome.text.trim(),
         'telefoneCliente': _telefone.text.trim(),
         'emailCliente': _email.text.trim(),
+        if (_cupomAplicado != null) 'cupomCodigo': _cupomAplicado!.codigo,
       });
       if (mounted) Navigator.pop(context, true);
     } on ApiException catch (e) {
@@ -323,6 +376,44 @@ class _ReservaDialogState extends State<_ReservaDialog> {
         _enviando = false;
       });
     }
+  }
+
+  Widget _resumoValores() {
+    final temDesconto = _desconto > 0;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F6F4),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        children: [
+          _linhaValor('Subtotal', moeda.format(_bruto)),
+          if (temDesconto) ...[
+            const SizedBox(height: 4),
+            _linhaValor(
+              'Desconto${_cupomAplicado != null ? ' (${_cupomAplicado!.codigo})' : ''}',
+              '- ${moeda.format(_desconto)}',
+              cor: const Color(0xFF1B7A3D),
+            ),
+          ],
+          const Divider(height: 16),
+          _linhaValor('Total', moeda.format(_total), negrito: true),
+        ],
+      ),
+    );
+  }
+
+  Widget _linhaValor(String label, String valor, {bool negrito = false, Color? cor}) {
+    final estilo = TextStyle(
+      fontWeight: negrito ? FontWeight.bold : FontWeight.normal,
+      fontSize: negrito ? 16 : 14,
+      color: cor,
+    );
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [Text(label, style: estilo), Text(valor, style: estilo)],
+    );
   }
 
   @override
@@ -377,6 +468,47 @@ class _ReservaDialogState extends State<_ReservaDialog> {
                 validator: (v) =>
                     (v == null || !v.contains('@')) ? 'E-mail inválido' : null,
               ),
+              const SizedBox(height: 12),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _cupom,
+                      textCapitalization: TextCapitalization.characters,
+                      decoration: InputDecoration(
+                        labelText: 'Cupom de desconto (opcional)',
+                        errorText: _cupomErro,
+                        suffixIcon: _cupomAplicado != null
+                            ? const Icon(Icons.check_circle, color: Color(0xFF1B7A3D))
+                            : null,
+                      ),
+                      onChanged: (_) {
+                        if (_cupomAplicado != null || _cupomErro != null) {
+                          setState(() {
+                            _cupomAplicado = null;
+                            _cupomErro = null;
+                          });
+                        }
+                      },
+                      onFieldSubmitted: (_) => _aplicarCupom(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    height: 48,
+                    child: OutlinedButton(
+                      onPressed: _validandoCupom ? null : _aplicarCupom,
+                      child: _validandoCupom
+                          ? const SizedBox(
+                              width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Text('Aplicar'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _resumoValores(),
               if (_erro != null) ...[
                 const SizedBox(height: 12),
                 Text(_erro!, style: const TextStyle(color: Colors.red)),

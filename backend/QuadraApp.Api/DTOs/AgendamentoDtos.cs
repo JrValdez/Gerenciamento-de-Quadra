@@ -15,7 +15,9 @@ public record AgendamentoDto(
     StatusAgendamento Status,
     decimal ValorTotal,
     string? Observacoes,
-    DateTime CriadoEm);
+    DateTime CriadoEm,
+    decimal ValorDesconto,
+    string? CupomCodigo);
 
 /// <summary>Agendamento público (cliente sem login). Nome, telefone e e-mail obrigatórios.</summary>
 public record AgendamentoPublicoRequest(
@@ -25,7 +27,8 @@ public record AgendamentoPublicoRequest(
     [Required] string NomeCliente,
     [Required] string TelefoneCliente,
     [Required, EmailAddress] string EmailCliente,
-    string? Observacoes = null);
+    string? Observacoes = null,
+    string? CupomCodigo = null);
 
 /// <summary>Criação por atendente/admin (pode já confirmar).</summary>
 public record AgendamentoCreateRequest(
@@ -36,7 +39,8 @@ public record AgendamentoCreateRequest(
     [Required] string TelefoneCliente,
     [Required, EmailAddress] string EmailCliente,
     StatusAgendamento Status = StatusAgendamento.Confirmado,
-    string? Observacoes = null);
+    string? Observacoes = null,
+    string? CupomCodigo = null);
 
 public record AgendamentoStatusRequest([Required] StatusAgendamento Status);
 

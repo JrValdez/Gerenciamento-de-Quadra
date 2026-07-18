@@ -6,6 +6,7 @@ import 'dashboard_screen.dart';
 import 'agendamentos_screen.dart';
 import 'quadras_screen.dart';
 import 'produtos_screen.dart';
+import 'cupons_screen.dart';
 import 'caixa_screen.dart';
 import 'usuarios_screen.dart';
 import 'bloqueios_screen.dart';
@@ -37,6 +38,7 @@ class _HomeShellState extends State<HomeShell> {
       if (usuario.isInterno) const _NavItem(Icons.event_busy, 'Bloqueios', BloqueiosScreen()),
       if (usuario.isInterno) const _NavItem(Icons.stadium, 'Quadras', QuadrasScreen()),
       if (usuario.isInterno) const _NavItem(Icons.inventory_2, 'Produtos', ProdutosScreen()),
+      if (usuario.isInterno) const _NavItem(Icons.local_offer, 'Cupons', CuponsScreen()),
       if (usuario.isInterno) const _NavItem(Icons.point_of_sale, 'Caixa', CaixaScreen()),
       if (usuario.isGestorCompeticao)
         const _NavItem(Icons.emoji_events, 'Competição', CompeticaoScreen()),
