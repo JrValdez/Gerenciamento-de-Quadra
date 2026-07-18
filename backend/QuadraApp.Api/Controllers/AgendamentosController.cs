@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QuadraApp.Api.Data;
@@ -13,7 +14,40 @@ namespace QuadraApp.Api.Controllers;
 public class AgendamentosController : ControllerBase
 {
     private readonly AppDbContext _db;
-    public AgendamentosController(AppDbContext db) => _db = db;
+    private readonly UserManager<ApplicationUser> _userManager;
+
+    public AgendamentosController(AppDbContext db, UserManager<ApplicationUser> userManager)
+    {
+        _db = db;
+        _userManager = userManager;
+    }
+
+    /// <summary>
+    /// Garante que quem reservou uma quadra pelo calendário exista como usuário
+    /// da categoria Cliente. É best-effort: se a criação falhar, a reserva continua
+    /// válida. Não altera contas já existentes (ex.: Aluno/Atendente que reservam).
+    /// </summary>
+    private async Task EnsureClienteAsync(string? nome, string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email) || !email.Contains('@')) return;
+
+        var emailNormalizado = email.Trim();
+        if (await _userManager.FindByEmailAsync(emailNormalizado) is not null) return;
+
+        var user = new ApplicationUser
+        {
+            UserName = emailNormalizado,
+            Email = emailNormalizado,
+            EmailConfirmed = true,
+            NomeCompleto = string.IsNullOrWhiteSpace(nome) ? emailNormalizado : nome.Trim(),
+        };
+
+        // Criado sem senha: aparece na tela de Usuários como Cliente; um Admin
+        // pode definir uma senha depois caso o cliente precise de acesso.
+        var result = await _userManager.CreateAsync(user);
+        if (result.Succeeded)
+            await _userManager.AddToRoleAsync(user, Roles.Cliente);
+    }
 
     private static AgendamentoDto Map(Agendamento a) =>
         new(a.Id, a.QuadraId, a.Quadra?.Nome ?? "", a.Inicio, a.Fim,
@@ -108,6 +142,7 @@ public class AgendamentosController : ControllerBase
         };
         _db.Agendamentos.Add(ag);
         await _db.SaveChangesAsync();
+        await EnsureClienteAsync(req.NomeCliente, req.EmailCliente);
         ag.Quadra = quadra;
         return CreatedAtAction(nameof(Obter), new { id = ag.Id }, Map(ag));
     }
@@ -216,6 +251,59 @@ public class AgendamentosController : ControllerBase
             CupomId = cupom?.Id,
             CupomCodigo = cupom?.Codigo,
             CriadoPorUserId = UsuarioAtual(),
+        };
+        _db.Agendamentos.Add(ag);
+        await _db.SaveChangesAsync();
+        await EnsureClienteAsync(req.NomeCliente, req.EmailCliente);
+        ag.Quadra = quadra;
+        return CreatedAtAction(nameof(Obter), new { id = ag.Id }, Map(ag));
+    }
+
+    // ----- Professor: reservar quadra para dar aula -----
+    [HttpPost("aula")]
+    [Authorize(Roles = Roles.Professor)]
+    public async Task<ActionResult<AgendamentoDto>> ReservarAula(AgendamentoAulaRequest req)
+    {
+        if (req.Fim <= req.Inicio)
+            return BadRequest(new { erro = "Horário final deve ser maior que o inicial." });
+        if (req.Inicio < DateTime.UtcNow.AddMinutes(-1))
+            return BadRequest(new { erro = "Não é possível agendar no passado." });
+
+        var profId = UsuarioAtual();
+        if (profId is null) return Unauthorized();
+        var professor = await _userManager.FindByIdAsync(profId.Value.ToString());
+        if (professor is null || !professor.Ativo)
+            return Unauthorized();
+
+        var quadra = await _db.Quadras.FindAsync(req.QuadraId);
+        if (quadra is null || !quadra.Ativa)
+            return BadRequest(new { erro = "Quadra indisponível." });
+
+        if (await ExisteConflito(req.QuadraId, req.Inicio, req.Fim))
+            return Conflict(new { erro = "Já existe reserva nesse horário." });
+        if (await ExisteBloqueio(req.QuadraId, req.Inicio, req.Fim))
+            return Conflict(new { erro = "Quadra bloqueada nesse horário." });
+
+        var horas = (decimal)(req.Fim - req.Inicio).TotalHours;
+        var valor = Math.Round(professor.PrecoAula * horas, 2);
+
+        var obs = string.IsNullOrWhiteSpace(req.Observacoes)
+            ? "Aula"
+            : $"Aula — {req.Observacoes.Trim()}";
+
+        var ag = new Agendamento
+        {
+            QuadraId = req.QuadraId,
+            Inicio = req.Inicio,
+            Fim = req.Fim,
+            NomeCliente = professor.NomeCompleto,
+            TelefoneCliente = professor.PhoneNumber ?? "",
+            EmailCliente = professor.Email ?? "",
+            Observacoes = obs,
+            Status = StatusAgendamento.Confirmado,
+            ValorTotal = valor,
+            ValorDesconto = 0m,
+            CriadoPorUserId = profId,
         };
         _db.Agendamentos.Add(ag);
         await _db.SaveChangesAsync();

@@ -42,6 +42,14 @@ public record AgendamentoCreateRequest(
     string? Observacoes = null,
     string? CupomCodigo = null);
 
+/// <summary>Reserva de quadra feita pelo próprio professor para dar aula.
+/// O valor usa o preço de aula do professor e a reserva já entra confirmada.</summary>
+public record AgendamentoAulaRequest(
+    [Required] Guid QuadraId,
+    [Required] DateTime Inicio,
+    [Required] DateTime Fim,
+    string? Observacoes = null);
+
 public record AgendamentoStatusRequest([Required] StatusAgendamento Status);
 
 /// <summary>Faixa de horário livre para exibir disponibilidade.</summary>

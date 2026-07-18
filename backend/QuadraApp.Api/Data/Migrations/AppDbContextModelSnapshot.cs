@@ -268,6 +268,9 @@ namespace QuadraApp.Api.Data.Migrations
                     b.Property<bool>("PhoneNumberConfirmed")
                         .HasColumnType("boolean");
 
+                    b.Property<decimal>("PrecoAula")
+                        .HasColumnType("numeric(10,2)");
+
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("text");
 

@@ -39,7 +39,7 @@ public class CompeticaoController : ControllerBase
         return Ok(alunos
             .Where(a => a.Ativo)
             .OrderBy(a => a.NomeCompleto)
-            .Select(a => new AlunoDto(a.Id, a.NomeCompleto, a.Email!)));
+            .Select(a => new AlunoDto(a.Id, a.NomeCompleto, a.Email!, a.PhoneNumber)));
     }
 
     // ----- Competidores -----

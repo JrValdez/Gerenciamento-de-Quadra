@@ -129,13 +129,23 @@ class _CaixaScreenState extends State<CaixaScreen> {
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
-        Row(
-          children: [
-            _kpi('Abertura', moeda.format(c.valorAbertura), Icons.play_circle, Colors.blueGrey),
-            _kpi('Entradas', moeda.format(c.totalEntradas), Icons.arrow_downward, const Color(0xFF1B7A3D)),
-            _kpi('Saídas', moeda.format(c.totalSaidas), Icons.arrow_upward, Colors.red),
-            _kpi('Saldo esperado', moeda.format(c.saldoEsperado), Icons.account_balance_wallet, Colors.indigo),
-          ],
+        LayoutBuilder(
+          builder: (context, cst) {
+            final w = cst.maxWidth;
+            final cardW = w < 520 ? (w - 12) / 2 : (w - 36) / 4;
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                _kpi('Abertura', moeda.format(c.valorAbertura), Icons.play_circle, Colors.blueGrey, cardW),
+                _kpi('Entradas', moeda.format(c.totalEntradas), Icons.arrow_downward,
+                    const Color(0xFF1B7A3D), cardW),
+                _kpi('Saídas', moeda.format(c.totalSaidas), Icons.arrow_upward, Colors.red, cardW),
+                _kpi('Saldo esperado', moeda.format(c.saldoEsperado),
+                    Icons.account_balance_wallet, Colors.indigo, cardW),
+              ],
+            );
+          },
         ),
         const SizedBox(height: 16),
         Wrap(
@@ -172,8 +182,9 @@ class _CaixaScreenState extends State<CaixaScreen> {
     );
   }
 
-  Widget _kpi(String label, String valor, IconData icon, Color cor) {
-    return Expanded(
+  Widget _kpi(String label, String valor, IconData icon, Color cor, double largura) {
+    return SizedBox(
+      width: largura,
       child: Card(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -183,10 +194,19 @@ class _CaixaScreenState extends State<CaixaScreen> {
               Row(children: [
                 Icon(icon, color: cor, size: 20),
                 const SizedBox(width: 6),
-                Text(label, style: TextStyle(color: Colors.grey.shade600)),
+                Flexible(
+                  child: Text(label,
+                      style: TextStyle(color: Colors.grey.shade600),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+                ),
               ]),
               const SizedBox(height: 8),
-              Text(valor, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(valor, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              ),
             ],
           ),
         ),
@@ -242,7 +262,7 @@ class _MovDialogState extends State<_MovDialog> {
     return AlertDialog(
       title: Text(entrada ? 'Suprimento (entrada)' : 'Sangria (saída)'),
       content: SizedBox(
-        width: 360,
+        width: MediaQuery.sizeOf(context).width.clamp(0.0, 448.0) - 88,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

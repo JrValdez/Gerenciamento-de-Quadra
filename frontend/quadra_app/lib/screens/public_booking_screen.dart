@@ -421,7 +421,7 @@ class _ReservaDialogState extends State<_ReservaDialog> {
     return AlertDialog(
       title: const Text('Confirmar reserva'),
       content: SizedBox(
-        width: 380,
+        width: MediaQuery.sizeOf(context).width.clamp(0.0, 468.0) - 88,
         child: Form(
           key: _form,
           child: Column(

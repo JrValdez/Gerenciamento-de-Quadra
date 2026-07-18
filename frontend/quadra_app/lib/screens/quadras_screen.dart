@@ -195,7 +195,7 @@ class _QuadraDialogState extends State<_QuadraDialog> {
     return AlertDialog(
       title: Text(widget.quadra == null ? 'Nova quadra' : 'Editar quadra'),
       content: SizedBox(
-        width: 400,
+        width: MediaQuery.sizeOf(context).width.clamp(0.0, 488.0) - 88,
         child: Form(
           key: _form,
           child: Column(
