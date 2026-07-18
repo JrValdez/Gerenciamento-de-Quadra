@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: quadra-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: quadra
+      POSTGRES_USER: quadra
+      POSTGRES_PASSWORD: quadra123
+    ports:
+      - "5432:5432"
+    volumes:
+      - quadra_pgdata:/var/lib/postgresql/data
+
+volumes:
+  quadra_pgdata:

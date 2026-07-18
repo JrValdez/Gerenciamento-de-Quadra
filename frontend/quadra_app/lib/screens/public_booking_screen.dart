@@ -1,0 +1,402 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:table_calendar/table_calendar.dart';
+
+import '../api_client.dart';
+import '../models.dart';
+import '../theme.dart';
+
+class PublicBookingScreen extends StatefulWidget {
+  const PublicBookingScreen({super.key});
+  @override
+  State<PublicBookingScreen> createState() => _PublicBookingScreenState();
+}
+
+class _PublicBookingScreenState extends State<PublicBookingScreen> {
+  late final ApiClient api = context.read<ApiClient>();
+
+  List<Quadra> _quadras = [];
+  Quadra? _quadra;
+  DateTime _dia = DateTime.now();
+  DateTime _focusedDay = DateTime.now();
+  List<Slot> _slots = [];
+  bool _carregandoQuadras = true;
+  bool _carregandoSlots = false;
+  String? _erro;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarQuadras();
+  }
+
+  Future<void> _carregarQuadras() async {
+    try {
+      final q = await api.quadras();
+      setState(() {
+        _quadras = q;
+        _quadra = q.isNotEmpty ? q.first : null;
+        _carregandoQuadras = false;
+      });
+      if (_quadra != null) _carregarSlots();
+    } catch (e) {
+      setState(() {
+        _erro = 'Não foi possível carregar as quadras. A API está no ar?';
+        _carregandoQuadras = false;
+      });
+    }
+  }
+
+  Future<void> _carregarSlots() async {
+    if (_quadra == null) return;
+    setState(() => _carregandoSlots = true);
+    try {
+      final s = await api.disponibilidade(_quadra!.id, DateTime(_dia.year, _dia.month, _dia.day));
+      setState(() {
+        _slots = s;
+        _carregandoSlots = false;
+      });
+    } catch (e) {
+      setState(() {
+        _slots = [];
+        _carregandoSlots = false;
+      });
+    }
+  }
+
+  Future<void> _reservar(Slot slot) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => _ReservaDialog(quadra: _quadra!, slot: slot, api: api),
+    );
+    if (ok == true) {
+      _carregarSlots();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Reserva solicitada! Confirmaremos em breve.'),
+              backgroundColor: Color(0xFF1B7A3D)),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Row(children: [
+          Icon(Icons.sports_tennis),
+          SizedBox(width: 8),
+          Text('Reserva de Quadras'),
+        ]),
+        actions: [
+          TextButton.icon(
+            onPressed: () => Navigator.pushNamed(context, '/ranking'),
+            icon: const Icon(Icons.emoji_events),
+            label: const Text('Ranking'),
+          ),
+          TextButton.icon(
+            onPressed: () => Navigator.pushNamed(context, '/login'),
+            icon: const Icon(Icons.lock_outline),
+            label: const Text('Área do funcionário'),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: _carregandoQuadras
+          ? const Center(child: CircularProgressIndicator())
+          : _erro != null
+              ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(_erro!)))
+              : Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 900),
+                    child: ListView(
+                      padding: const EdgeInsets.all(20),
+                      children: [
+                        const SizedBox(height: 12),
+                        _Hero(),
+                        const SizedBox(height: 24),
+                        DropdownButtonFormField<Quadra>(
+                          initialValue: _quadra,
+                          decoration: const InputDecoration(labelText: 'Quadra'),
+                          items: _quadras
+                              .map((q) => DropdownMenuItem(
+                                  value: q,
+                                  child: Text('${q.nome}  •  ${moeda.format(q.precoHora)}/h  •  '
+                                      '${q.horaAbertura.toString().padLeft(2, '0')}h-${q.horaFechamento.toString().padLeft(2, '0')}h')))
+                              .toList(),
+                          onChanged: (q) {
+                            setState(() => _quadra = q);
+                            _carregarSlots();
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: TableCalendar(
+                              locale: 'pt_BR',
+                              firstDay: DateTime.now(),
+                              lastDay: DateTime.now().add(const Duration(days: 31)),
+                              focusedDay: _focusedDay,
+                              currentDay: DateTime.now(),
+                              availableCalendarFormats: const {CalendarFormat.month: 'Mês'},
+                              selectedDayPredicate: (d) => isSameDay(d, _dia),
+                              onDaySelected: (selected, focused) {
+                                setState(() {
+                                  _dia = selected;
+                                  _focusedDay = focused;
+                                });
+                                _carregarSlots();
+                              },
+                              calendarStyle: CalendarStyle(
+                                todayDecoration: BoxDecoration(
+                                  color: const Color(0xFF1B7A3D).withValues(alpha: 0.35),
+                                  shape: BoxShape.circle,
+                                ),
+                                selectedDecoration: const BoxDecoration(
+                                  color: Color(0xFF1B7A3D),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              headerStyle: const HeaderStyle(
+                                formatButtonVisible: false,
+                                titleCentered: true,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Text('Horários de ${dataFmt.format(_dia)}',
+                            style: Theme.of(context).textTheme.titleMedium),
+                        const SizedBox(height: 12),
+                        if (_carregandoSlots)
+                          const Padding(
+                              padding: EdgeInsets.all(32),
+                              child: Center(child: CircularProgressIndicator()))
+                        else if (_slots.isEmpty)
+                          const Text('Nenhum horário para este dia.')
+                        else
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: _slots.map(_slotChip).toList(),
+                          ),
+                        const SizedBox(height: 40),
+                      ],
+                    ),
+                  ),
+                ),
+    );
+  }
+
+  Widget _slotChip(Slot s) {
+    final label = '${horaFmt.format(s.inicio)} - ${horaFmt.format(s.fim)}';
+    if (!s.disponivel) {
+      return Chip(
+        label: Text(label),
+        backgroundColor: Colors.grey.shade200,
+        labelStyle: TextStyle(color: Colors.grey.shade500, decoration: TextDecoration.lineThrough),
+      );
+    }
+    return ActionChip(
+      label: Text(label),
+      avatar: const Icon(Icons.check_circle, color: Color(0xFF1B7A3D), size: 18),
+      backgroundColor: const Color(0xFFE6F4EA),
+      side: const BorderSide(color: Color(0xFF1B7A3D)),
+      onPressed: () => _reservar(s),
+    );
+  }
+}
+
+class _Hero extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        gradient: Brand.heroGradient,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Brand.green.withValues(alpha: 0.25),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            right: -10,
+            top: -10,
+            child: Icon(Icons.sports_tennis,
+                size: 120, color: Colors.white.withValues(alpha: 0.10)),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text('SEM CADASTRO',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1)),
+              ),
+              const SizedBox(height: 14),
+              Text('Reserve sua quadra\nem segundos',
+                  style: GoogleFonts.barlowCondensed(
+                      color: Colors.white,
+                      fontSize: 38,
+                      height: 1.05,
+                      fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              Text('Escolha a quadra, o dia no calendário e o horário. Depois é só informar nome, telefone e e-mail.',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 15, height: 1.4)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReservaDialog extends StatefulWidget {
+  final Quadra quadra;
+  final Slot slot;
+  final ApiClient api;
+  const _ReservaDialog({required this.quadra, required this.slot, required this.api});
+
+  @override
+  State<_ReservaDialog> createState() => _ReservaDialogState();
+}
+
+class _ReservaDialogState extends State<_ReservaDialog> {
+  final _form = GlobalKey<FormState>();
+  final _nome = TextEditingController();
+  final _telefone = TextEditingController();
+  final _email = TextEditingController();
+  bool _enviando = false;
+  String? _erro;
+
+  @override
+  void dispose() {
+    _nome.dispose();
+    _telefone.dispose();
+    _email.dispose();
+    super.dispose();
+  }
+
+  Future<void> _confirmar() async {
+    if (!_form.currentState!.validate()) return;
+    setState(() {
+      _enviando = true;
+      _erro = null;
+    });
+    try {
+      await widget.api.agendarPublico({
+        'quadraId': widget.quadra.id,
+        'inicio': widget.slot.inicio.toUtc().toIso8601String(),
+        'fim': widget.slot.fim.toUtc().toIso8601String(),
+        'nomeCliente': _nome.text.trim(),
+        'telefoneCliente': _telefone.text.trim(),
+        'emailCliente': _email.text.trim(),
+      });
+      if (mounted) Navigator.pop(context, true);
+    } on ApiException catch (e) {
+      setState(() {
+        _erro = e.message;
+        _enviando = false;
+      });
+    } catch (_) {
+      setState(() {
+        _erro = 'Falha ao enviar. Tente novamente.';
+        _enviando = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Confirmar reserva'),
+      content: SizedBox(
+        width: 380,
+        child: Form(
+          key: _form,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE6F4EA),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.event_available, color: Color(0xFF1B7A3D)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        '${widget.quadra.nome}\n${dataFmt.format(widget.slot.inicio)}  '
+                        '${horaFmt.format(widget.slot.inicio)}-${horaFmt.format(widget.slot.fim)}\n'
+                        '${moeda.format(widget.quadra.precoHora)}',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _nome,
+                decoration: const InputDecoration(labelText: 'Nome completo'),
+                validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe seu nome' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _telefone,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(labelText: 'Telefone / WhatsApp'),
+                validator: (v) => (v == null || v.trim().length < 8) ? 'Telefone inválido' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _email,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(labelText: 'E-mail'),
+                validator: (v) =>
+                    (v == null || !v.contains('@')) ? 'E-mail inválido' : null,
+              ),
+              if (_erro != null) ...[
+                const SizedBox(height: 12),
+                Text(_erro!, style: const TextStyle(color: Colors.red)),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _enviando ? null : () => Navigator.pop(context, false),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: _enviando ? null : _confirmar,
+          child: _enviando
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Text('Confirmar reserva'),
+        ),
+      ],
+    );
+  }
+}

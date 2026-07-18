@@ -1,0 +1,46 @@
+# Stack completa de produção: PostgreSQL + API .NET + Flutter Web (nginx).
+# Exponha apenas o serviço "web" ao reverse proxy do host (subdomínio).
+# Uso: docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - quadra_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ../backend/QuadraApp.Api
+    restart: unless-stopped
+    environment:
+      TZ: America/Sao_Paulo
+      ConnectionStrings__Default: "Host=db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
+      Jwt__Key: ${JWT_KEY}
+      Jwt__Issuer: QuadraApp
+      Jwt__Audience: QuadraApp
+      Jwt__ExpiraMinutos: "480"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ../frontend/quadra_app
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8090}:80"
+    depends_on:
+      - api
+
+volumes:
+  quadra_pgdata:
