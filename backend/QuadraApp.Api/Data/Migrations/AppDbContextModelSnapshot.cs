@@ -164,6 +164,13 @@ namespace QuadraApp.Api.Data.Migrations
                     b.Property<Guid?>("CriadoPorUserId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("CupomCodigo")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid?>("CupomId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("EmailCliente")
                         .IsRequired()
                         .HasMaxLength(160)
@@ -194,6 +201,9 @@ namespace QuadraApp.Api.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
+
+                    b.Property<decimal>("ValorDesconto")
+                        .HasColumnType("numeric(10,2)");
 
                     b.Property<decimal>("ValorTotal")
                         .HasColumnType("numeric(10,2)");
@@ -404,6 +414,49 @@ namespace QuadraApp.Api.Data.Migrations
                     b.HasIndex("CompetidorId");
 
                     b.ToTable("CompetidorMembros");
+                });
+
+            modelBuilder.Entity("QuadraApp.Api.Models.Cupom", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CriadoPorUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Descricao")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Tipo")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("ValidoAte")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("Valor")
+                        .HasColumnType("numeric(10,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Ativo");
+
+                    b.HasIndex("Codigo")
+                        .IsUnique();
+
+                    b.ToTable("Cupons");
                 });
 
             modelBuilder.Entity("QuadraApp.Api.Models.LancamentoPonto", b =>

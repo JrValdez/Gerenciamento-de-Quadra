@@ -47,3 +47,11 @@ public enum StatusCaixa
     Aberto = 0,
     Fechado = 1
 }
+
+public enum TipoDesconto
+{
+    /// <summary>Desconto percentual sobre o valor (0-100).</summary>
+    Percentual = 0,
+    /// <summary>Desconto de valor fixo em reais.</summary>
+    ValorFixo = 1
+}

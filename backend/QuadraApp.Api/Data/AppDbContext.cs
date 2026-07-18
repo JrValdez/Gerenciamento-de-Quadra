@@ -21,6 +21,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Guid
     public DbSet<CompetidorMembro> CompetidorMembros => Set<CompetidorMembro>();
     public DbSet<LancamentoPonto> LancamentosPonto => Set<LancamentoPonto>();
     public DbSet<Bloqueio> Bloqueios => Set<Bloqueio>();
+    public DbSet<Cupom> Cupons => Set<Cupom>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -35,6 +36,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Guid
         builder.Entity<Agendamento>(e =>
         {
             e.Property(a => a.ValorTotal).HasColumnType("numeric(10,2)");
+            e.Property(a => a.ValorDesconto).HasColumnType("numeric(10,2)");
             e.HasOne(a => a.Quadra)
                 .WithMany(q => q.Agendamentos)
                 .HasForeignKey(a => a.QuadraId)
@@ -130,6 +132,13 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Guid
                 .HasForeignKey(b => b.QuadraId)
                 .OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(b => new { b.QuadraId, b.Inicio, b.Fim });
+        });
+
+        builder.Entity<Cupom>(e =>
+        {
+            e.Property(c => c.Valor).HasColumnType("numeric(10,2)");
+            e.HasIndex(c => c.Codigo).IsUnique();
+            e.HasIndex(c => c.Ativo);
         });
     }
 }

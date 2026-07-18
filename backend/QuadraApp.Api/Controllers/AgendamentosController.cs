@@ -18,7 +18,30 @@ public class AgendamentosController : ControllerBase
     private static AgendamentoDto Map(Agendamento a) =>
         new(a.Id, a.QuadraId, a.Quadra?.Nome ?? "", a.Inicio, a.Fim,
             a.NomeCliente, a.TelefoneCliente, a.EmailCliente,
-            a.Status, a.ValorTotal, a.Observacoes, a.CriadoEm);
+            a.Status, a.ValorTotal, a.Observacoes, a.CriadoEm,
+            a.ValorDesconto, a.CupomCodigo);
+
+    /// <summary>
+    /// Resolve e valida um cupom para um valor bruto. Retorna o cupom, o desconto a abater
+    /// e uma mensagem de erro (quando o código foi informado mas é inválido/expirado).
+    /// </summary>
+    private async Task<(Cupom? cupom, decimal desconto, string? erro)> ResolverCupomAsync(
+        string? codigo, decimal bruto)
+    {
+        if (string.IsNullOrWhiteSpace(codigo)) return (null, 0m, null);
+
+        var cod = codigo.Trim().ToUpperInvariant();
+        var cupom = await _db.Cupons.FirstOrDefaultAsync(c => c.Codigo == cod);
+        if (cupom is null) return (null, 0m, "Cupom não encontrado.");
+        if (!cupom.Ativo) return (null, 0m, "Cupom inativo.");
+        if (cupom.ValidoAte < DateTime.UtcNow) return (null, 0m, "Cupom expirado.");
+
+        var desconto = cupom.Tipo == TipoDesconto.Percentual
+            ? Math.Round(bruto * cupom.Valor / 100m, 2)
+            : cupom.Valor;
+        if (desconto > bruto) desconto = bruto;
+        return (cupom, desconto, null);
+    }
 
     private Guid? UsuarioAtual()
     {
@@ -64,6 +87,10 @@ public class AgendamentosController : ControllerBase
         if (await ExisteBloqueio(req.QuadraId, req.Inicio, req.Fim))
             return Conflict(new { erro = "Quadra bloqueada nesse horário." });
 
+        var bruto = CalcularValor(quadra, req.Inicio, req.Fim);
+        var (cupom, desconto, erroCupom) = await ResolverCupomAsync(req.CupomCodigo, bruto);
+        if (erroCupom is not null) return BadRequest(new { erro = erroCupom });
+
         var ag = new Agendamento
         {
             QuadraId = req.QuadraId,
@@ -74,7 +101,10 @@ public class AgendamentosController : ControllerBase
             EmailCliente = req.EmailCliente,
             Observacoes = req.Observacoes,
             Status = StatusAgendamento.Pendente,
-            ValorTotal = CalcularValor(quadra, req.Inicio, req.Fim),
+            ValorTotal = bruto - desconto,
+            ValorDesconto = desconto,
+            CupomId = cupom?.Id,
+            CupomCodigo = cupom?.Codigo,
         };
         _db.Agendamentos.Add(ag);
         await _db.SaveChangesAsync();
@@ -167,6 +197,10 @@ public class AgendamentosController : ControllerBase
         if (await ExisteBloqueio(req.QuadraId, req.Inicio, req.Fim))
             return Conflict(new { erro = "Quadra bloqueada nesse horário. Remova o bloqueio para reservar." });
 
+        var bruto = CalcularValor(quadra, req.Inicio, req.Fim);
+        var (cupom, desconto, erroCupom) = await ResolverCupomAsync(req.CupomCodigo, bruto);
+        if (erroCupom is not null) return BadRequest(new { erro = erroCupom });
+
         var ag = new Agendamento
         {
             QuadraId = req.QuadraId,
@@ -177,7 +211,10 @@ public class AgendamentosController : ControllerBase
             EmailCliente = req.EmailCliente,
             Observacoes = req.Observacoes,
             Status = req.Status,
-            ValorTotal = CalcularValor(quadra, req.Inicio, req.Fim),
+            ValorTotal = bruto - desconto,
+            ValorDesconto = desconto,
+            CupomId = cupom?.Id,
+            CupomCodigo = cupom?.Codigo,
             CriadoPorUserId = UsuarioAtual(),
         };
         _db.Agendamentos.Add(ag);

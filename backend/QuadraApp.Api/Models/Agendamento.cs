@@ -27,7 +27,18 @@ public class Agendamento
 
     public StatusAgendamento Status { get; set; } = StatusAgendamento.Pendente;
 
+    /// <summary>Valor final já com o desconto do cupom aplicado.</summary>
     public decimal ValorTotal { get; set; }
+
+    /// <summary>Quanto foi abatido por cupom (0 quando não há cupom).</summary>
+    public decimal ValorDesconto { get; set; }
+
+    /// <summary>Cupom aplicado, se houver.</summary>
+    public Guid? CupomId { get; set; }
+
+    /// <summary>Código do cupom aplicado (cópia histórica).</summary>
+    [MaxLength(40)]
+    public string? CupomCodigo { get; set; }
 
     [MaxLength(500)]
     public string? Observacoes { get; set; }

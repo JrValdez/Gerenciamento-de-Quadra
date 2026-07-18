@@ -55,7 +55,8 @@ public class DashboardController : ControllerBase
             .OrderBy(a => a.Inicio)
             .Take(6)
             .Select(a => new AgendamentoDto(a.Id, a.QuadraId, a.Quadra!.Nome, a.Inicio, a.Fim,
-                a.NomeCliente, a.TelefoneCliente, a.EmailCliente, a.Status, a.ValorTotal, a.Observacoes, a.CriadoEm))
+                a.NomeCliente, a.TelefoneCliente, a.EmailCliente, a.Status, a.ValorTotal, a.Observacoes, a.CriadoEm,
+                a.ValorDesconto, a.CupomCodigo))
             .ToListAsync();
 
         return Ok(new DashboardResumo(
