@@ -76,7 +76,7 @@ class _CuponsScreenState extends State<CuponsScreen> {
                   child: _itens.isEmpty
                       ? const Center(child: Text('Nenhum cupom cadastrado.'))
                       : ListView.separated(
-                          padding: const EdgeInsets.all(24),
+                          padding: const EdgeInsets.fromLTRB(24, 24, 24, 96),
                           itemCount: _itens.length,
                           separatorBuilder: (_, _) => const SizedBox(height: 8),
                           itemBuilder: (_, i) => _card(_itens[i], isAdmin),
@@ -89,49 +89,80 @@ class _CuponsScreenState extends State<CuponsScreen> {
 
   Widget _card(Cupom c, bool isAdmin) {
     final expirado = !c.valido;
-    return Card(
-      child: ListTile(
-        leading: CircleAvatar(
+    final temDesc = c.descricao != null && c.descricao!.isNotEmpty;
+    final info = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        CircleAvatar(
           backgroundColor: c.valido ? const Color(0xFFE6F4EA) : const Color(0xFFFDE7E7),
-          child: Icon(Icons.local_offer,
-              color: c.valido ? const Color(0xFF1B7A3D) : Colors.red),
+          child: Icon(Icons.local_offer, color: c.valido ? const Color(0xFF1B7A3D) : Colors.red),
         ),
-        title: Row(
-          children: [
-            Text(c.codigo, style: const TextStyle(fontWeight: FontWeight.w600, letterSpacing: 1)),
-            const SizedBox(width: 8),
-            if (!c.ativo)
-              const Chip(label: Text('Inativo'), visualDensity: VisualDensity.compact)
-            else if (expirado)
-              const Chip(
-                label: Text('Expirado'),
-                visualDensity: VisualDensity.compact,
-                backgroundColor: Color(0xFFFDE7E7),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(c.codigo,
+                        style: const TextStyle(fontWeight: FontWeight.w600, letterSpacing: 1),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                  const SizedBox(width: 8),
+                  if (!c.ativo)
+                    const Chip(label: Text('Inativo'), visualDensity: VisualDensity.compact)
+                  else if (expirado)
+                    const Chip(
+                      label: Text('Expirado'),
+                      visualDensity: VisualDensity.compact,
+                      backgroundColor: Color(0xFFFDE7E7),
+                    ),
+                ],
               ),
-          ],
+              const SizedBox(height: 2),
+              Text('${_descontoLabel(c)} • válido até ${dataFmt.format(c.validoAte)}',
+                  style: TextStyle(color: expirado ? Colors.red : Colors.grey.shade700, fontSize: 13)),
+              if (temDesc)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(c.descricao!,
+                      style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis),
+                ),
+            ],
+          ),
         ),
-        subtitle: Text(
-          '${_descontoLabel(c)} • válido até ${dataFmt.format(c.validoAte)}'
-          '${c.descricao != null && c.descricao!.isNotEmpty ? '\n${c.descricao}' : ''}',
-          style: TextStyle(color: expirado ? Colors.red : null),
+      ],
+    );
+    final acoes = <Widget>[
+      IconButton(onPressed: () => _editar(c), icon: const Icon(Icons.edit), tooltip: 'Editar'),
+      if (isAdmin)
+        IconButton(
+          tooltip: 'Excluir',
+          icon: const Icon(Icons.delete_outline),
+          onPressed: () async {
+            try {
+              await api.excluirCupom(c.id);
+              _carregar();
+            } catch (e) {
+              _msg('Erro: $e');
+            }
+          },
         ),
-        isThreeLine: c.descricao != null && c.descricao!.isNotEmpty,
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
+    ];
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            IconButton(onPressed: () => _editar(c), icon: const Icon(Icons.edit)),
-            if (isAdmin)
-              IconButton(
-                icon: const Icon(Icons.delete_outline),
-                onPressed: () async {
-                  try {
-                    await api.excluirCupom(c.id);
-                    _carregar();
-                  } catch (e) {
-                    _msg('Erro: $e');
-                  }
-                },
-              ),
+            Expanded(child: info),
+            const SizedBox(width: 4),
+            ...acoes,
           ],
         ),
       ),

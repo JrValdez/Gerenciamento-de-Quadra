@@ -10,6 +10,10 @@ import 'cupons_screen.dart';
 import 'caixa_screen.dart';
 import 'usuarios_screen.dart';
 import 'bloqueios_screen.dart';
+import 'professores_screen.dart';
+import 'reservar_aula_screen.dart';
+import 'alunos_screen.dart';
+import 'analise_screen.dart';
 import 'competicao/competicao_screen.dart';
 
 class HomeShell extends StatefulWidget {
@@ -33,6 +37,10 @@ class _HomeShellState extends State<HomeShell> {
     final usuario = auth.usuario!;
 
     final paginas = <_NavItem>[
+      if (usuario.isProfessor)
+        const _NavItem(Icons.school, 'Reservar aula', ReservarAulaScreen()),
+      if (usuario.isProfessor)
+        const _NavItem(Icons.groups, 'Alunos', AlunosScreen()),
       if (usuario.isInterno) const _NavItem(Icons.dashboard, 'Painel', DashboardScreen()),
       if (usuario.isInterno) const _NavItem(Icons.event_note, 'Agendamentos', AgendamentosScreen()),
       if (usuario.isInterno) const _NavItem(Icons.event_busy, 'Bloqueios', BloqueiosScreen()),
@@ -40,9 +48,12 @@ class _HomeShellState extends State<HomeShell> {
       if (usuario.isInterno) const _NavItem(Icons.inventory_2, 'Produtos', ProdutosScreen()),
       if (usuario.isInterno) const _NavItem(Icons.local_offer, 'Cupons', CuponsScreen()),
       if (usuario.isInterno) const _NavItem(Icons.point_of_sale, 'Caixa', CaixaScreen()),
+      if (usuario.isInterno)
+        const _NavItem(Icons.sports, 'Professores', ProfessoresScreen()),
       if (usuario.isGestorCompeticao)
         const _NavItem(Icons.emoji_events, 'Competição', CompeticaoScreen()),
-      if (usuario.isAdmin) const _NavItem(Icons.group, 'Usuários', UsuariosScreen()),
+      if (usuario.isInterno) const _NavItem(Icons.group, 'Usuários', UsuariosScreen()),
+      if (usuario.isAdmin) const _NavItem(Icons.insights, 'Análises', AnaliseScreen()),
     ];
     if (paginas.isEmpty) {
       return const Scaffold(body: Center(child: Text('Sem telas disponíveis para este papel.')));
@@ -97,29 +108,45 @@ class _HomeShellState extends State<HomeShell> {
                   height: 64,
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   alignment: Alignment.centerLeft,
-                  child: Row(
-                    children: [
-                      Text(paginas[_index].label,
-                          style: Theme.of(context).textTheme.titleLarge),
-                      const Spacer(),
-                      Text(usuario.nomeCompleto),
-                      const SizedBox(width: 8),
-                      CircleAvatar(
-                        radius: 16,
-                        backgroundColor: const Color(0xFF1B7A3D),
-                        child: Text(
-                          usuario.nomeCompleto.isNotEmpty
-                              ? usuario.nomeCompleto[0].toUpperCase()
-                              : '?',
-                          style: const TextStyle(color: Colors.white, fontSize: 14),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Chip(
-                        label: Text(usuario.papeis.join(', ')),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ],
+                  child: LayoutBuilder(
+                    builder: (context, c) {
+                      final compacto = c.maxWidth < 520;
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: Text(paginas[_index].label,
+                                style: Theme.of(context).textTheme.titleLarge,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                          ),
+                          const SizedBox(width: 12),
+                          if (!compacto) ...[
+                            Flexible(
+                              child: Text(usuario.nomeCompleto,
+                                  maxLines: 1, overflow: TextOverflow.ellipsis),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          CircleAvatar(
+                            radius: 16,
+                            backgroundColor: const Color(0xFF1B7A3D),
+                            child: Text(
+                              usuario.nomeCompleto.isNotEmpty
+                                  ? usuario.nomeCompleto[0].toUpperCase()
+                                  : '?',
+                              style: const TextStyle(color: Colors.white, fontSize: 14),
+                            ),
+                          ),
+                          if (!compacto) ...[
+                            const SizedBox(width: 8),
+                            Chip(
+                              label: Text(usuario.papeis.join(', ')),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ],
+                        ],
+                      );
+                    },
                   ),
                 ),
                 const Divider(height: 1),

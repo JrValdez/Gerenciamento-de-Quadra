@@ -60,12 +60,19 @@ class _AgendamentosScreenState extends State<AgendamentosScreen> {
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
           child: Row(
             children: [
-              const Text('Filtrar: '),
-              const SizedBox(width: 8),
-              _chip('Todos', null),
-              for (var i = 0; i < statusAgendamentoLabels.length; i++)
-                _chip(statusAgendamentoLabels[i], i),
-              const Spacer(),
+              Expanded(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    const Padding(padding: EdgeInsets.only(right: 2), child: Text('Filtrar:')),
+                    _chip('Todos', null),
+                    for (var i = 0; i < statusAgendamentoLabels.length; i++)
+                      _chip(statusAgendamentoLabels[i], i),
+                  ],
+                ),
+              ),
               IconButton(onPressed: _carregar, icon: const Icon(Icons.refresh)),
             ],
           ),
@@ -88,77 +95,103 @@ class _AgendamentosScreenState extends State<AgendamentosScreen> {
 
   Widget _chip(String label, int? status) {
     final sel = _filtroStatus == status;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: ChoiceChip(
-        label: Text(label),
-        selected: sel,
-        onSelected: (_) {
-          setState(() => _filtroStatus = status);
-          _carregar();
-        },
-      ),
+    return ChoiceChip(
+      label: Text(label),
+      selected: sel,
+      onSelected: (_) {
+        setState(() => _filtroStatus = status);
+        _carregar();
+      },
     );
   }
 
   Widget _card(Agendamento a) {
+    final cor = _cores[a.status];
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+      child: IntrinsicHeight(
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(width: 4, height: 56, color: _cores[a.status]),
-            const SizedBox(width: 16),
-            Expanded(
-              flex: 3,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(a.nomeCliente, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  Text('${a.telefoneCliente} • ${a.emailCliente}',
-                      style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-                ],
+            Container(
+              width: 5,
+              decoration: BoxDecoration(
+                color: cor,
+                borderRadius: const BorderRadius.horizontal(left: Radius.circular(12)),
               ),
             ),
             Expanded(
-              flex: 3,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(a.quadraNome),
-                  Text('${dataFmt.format(a.inicio)}  ${horaFmt.format(a.inicio)}-${horaFmt.format(a.fim)}',
-                      style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-                ],
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(a.nomeCliente,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                        ),
+                        const SizedBox(width: 8),
+                        Chip(
+                          label: Text(a.statusLabel),
+                          backgroundColor: cor.withValues(alpha: 0.15),
+                          labelStyle: TextStyle(color: cor, fontWeight: FontWeight.w600),
+                          side: BorderSide.none,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        PopupMenuButton<int>(
+                          tooltip: 'Alterar status',
+                          onSelected: (s) => _mudarStatus(a, s),
+                          itemBuilder: (_) => const [
+                            PopupMenuItem(value: 1, child: Text('Confirmar')),
+                            PopupMenuItem(value: 2, child: Text('Concluir')),
+                            PopupMenuItem(value: 3, child: Text('Cancelar')),
+                          ],
+                        ),
+                      ],
+                    ),
+                    if (a.telefoneCliente.isNotEmpty || a.emailCliente.isNotEmpty)
+                      Text('${a.telefoneCliente} • ${a.emailCliente}',
+                          style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 18,
+                      runSpacing: 6,
+                      children: [
+                        _meta(Icons.stadium, a.quadraNome),
+                        _meta(Icons.schedule,
+                            '${dataFmt.format(a.inicio)}  ${horaFmt.format(a.inicio)}-${horaFmt.format(a.fim)}'),
+                        _meta(
+                          Icons.payments,
+                          a.cupomCodigo != null && a.cupomCodigo!.isNotEmpty
+                              ? '${moeda.format(a.valorTotal)}  (${a.cupomCodigo} -${moeda.format(a.valorDesconto)})'
+                              : moeda.format(a.valorTotal),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(moeda.format(a.valorTotal)),
-                  if (a.cupomCodigo != null && a.cupomCodigo!.isNotEmpty)
-                    Text('${a.cupomCodigo} (-${moeda.format(a.valorDesconto)})',
-                        style: const TextStyle(color: Color(0xFF1B7A3D), fontSize: 11)),
-                ],
-              ),
-            ),
-            Chip(
-              label: Text(a.statusLabel),
-              backgroundColor: _cores[a.status].withValues(alpha: 0.15),
-              labelStyle: TextStyle(color: _cores[a.status]),
-              side: BorderSide.none,
-            ),
-            PopupMenuButton<int>(
-              onSelected: (s) => _mudarStatus(a, s),
-              itemBuilder: (_) => [
-                const PopupMenuItem(value: 1, child: Text('Confirmar')),
-                const PopupMenuItem(value: 2, child: Text('Concluir')),
-                const PopupMenuItem(value: 3, child: Text('Cancelar')),
-              ],
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _meta(IconData icone, String texto) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icone, size: 15, color: Colors.grey.shade500),
+        const SizedBox(width: 5),
+        Text(texto, style: const TextStyle(fontSize: 13)),
+      ],
     );
   }
 }

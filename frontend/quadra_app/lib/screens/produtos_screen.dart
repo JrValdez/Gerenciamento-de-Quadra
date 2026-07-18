@@ -83,7 +83,7 @@ class _ProdutosScreenState extends State<ProdutosScreen> {
       body: _carregando
           ? const Center(child: CircularProgressIndicator())
           : ListView.separated(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 150),
               itemCount: _itens.length,
               separatorBuilder: (_, _) => const SizedBox(height: 8),
               itemBuilder: (_, i) => _card(_itens[i], isAdmin),
@@ -93,43 +93,85 @@ class _ProdutosScreenState extends State<ProdutosScreen> {
 
   Widget _card(Produto p, bool isAdmin) {
     final semEstoque = p.estoqueQuantidade <= 0;
-    return Card(
-      child: ListTile(
-        leading: CircleAvatar(
+    final info = Row(
+      children: [
+        CircleAvatar(
           backgroundColor: const Color(0xFFE6F4EA),
           child: Text(p.categoria.isNotEmpty ? p.categoria[0] : '?',
               style: const TextStyle(color: Color(0xFF1B7A3D))),
         ),
-        title: Row(
-          children: [
-            Text(p.nome, style: const TextStyle(fontWeight: FontWeight.w600)),
-            if (!p.ativo) const Padding(
-              padding: EdgeInsets.only(left: 8),
-              child: Chip(label: Text('Inativo'), visualDensity: VisualDensity.compact),
-            ),
-          ],
-        ),
-        subtitle: Text('${p.categoria} • Estoque: ${p.estoqueQuantidade}'
-            '${semEstoque ? '  (sem estoque)' : ''}',
-            style: TextStyle(color: semEstoque ? Colors.red : null)),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(moeda.format(p.preco), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            IconButton(onPressed: () => _editar(p), icon: const Icon(Icons.edit)),
-            if (isAdmin)
-              IconButton(
-                onPressed: () async {
-                  try {
-                    await api.excluirProduto(p.id);
-                    _carregar();
-                  } catch (e) {
-                    _msg('Erro: $e');
-                  }
-                },
-                icon: const Icon(Icons.delete_outline),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(p.nome,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                  if (!p.ativo)
+                    const Padding(
+                      padding: EdgeInsets.only(left: 8),
+                      child: Chip(label: Text('Inativo'), visualDensity: VisualDensity.compact),
+                    ),
+                ],
               ),
-          ],
+              const SizedBox(height: 2),
+              Text(
+                '${p.categoria} • Estoque: ${p.estoqueQuantidade}'
+                '${semEstoque ? '  (sem estoque)' : ''}',
+                style: TextStyle(color: semEstoque ? Colors.red : Colors.grey.shade600, fontSize: 13),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+    final acoes = <Widget>[
+      Text(moeda.format(p.preco), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+      IconButton(onPressed: () => _editar(p), icon: const Icon(Icons.edit), tooltip: 'Editar'),
+      if (isAdmin)
+        IconButton(
+          tooltip: 'Excluir',
+          onPressed: () async {
+            try {
+              await api.excluirProduto(p.id);
+              _carregar();
+            } catch (e) {
+              _msg('Erro: $e');
+            }
+          },
+          icon: const Icon(Icons.delete_outline),
+        ),
+    ];
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: LayoutBuilder(
+          builder: (context, c) {
+            final acoesWrap = Wrap(
+              spacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              alignment: WrapAlignment.end,
+              children: acoes,
+            );
+            if (c.maxWidth < 460) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [info, const SizedBox(height: 6), acoesWrap],
+              );
+            }
+            return Row(
+              children: [Expanded(child: info), const SizedBox(width: 8), Flexible(child: acoesWrap)],
+            );
+          },
         ),
       ),
     );
@@ -193,7 +235,7 @@ class _ProdutoDialogState extends State<_ProdutoDialog> {
     return AlertDialog(
       title: Text(widget.produto == null ? 'Novo produto' : 'Editar produto'),
       content: SizedBox(
-        width: 400,
+        width: MediaQuery.sizeOf(context).width.clamp(0.0, 488.0) - 88,
         child: Form(
           key: _form,
           child: Column(

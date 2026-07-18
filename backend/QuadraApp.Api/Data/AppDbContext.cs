@@ -27,6 +27,11 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Guid
     {
         base.OnModelCreating(builder);
 
+        builder.Entity<ApplicationUser>(e =>
+        {
+            e.Property(u => u.PrecoAula).HasColumnType("numeric(10,2)");
+        });
+
         builder.Entity<Quadra>(e =>
         {
             e.Property(q => q.PrecoHora).HasColumnType("numeric(10,2)");

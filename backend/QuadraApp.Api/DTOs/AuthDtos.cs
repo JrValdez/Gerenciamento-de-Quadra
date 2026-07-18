@@ -22,6 +22,16 @@ public record UsuarioDto(
     string NomeCompleto,
     string Email,
     IEnumerable<string> Papeis,
-    bool Ativo);
+    bool Ativo,
+    string? Telefone = null);
 
 public record AtivoRequest([Required] bool Ativo);
+
+/// <summary>Edição de dados básicos do usuário por Admin/Atendente.</summary>
+public record EditarUsuarioRequest(
+    [Required] string NomeCompleto,
+    [Required, EmailAddress] string Email,
+    [Phone] string? Telefone = null);
+
+/// <summary>Alteração do papel (classificação) do usuário.</summary>
+public record PapelRequest([Required] string Papel);

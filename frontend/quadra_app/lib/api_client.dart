@@ -82,11 +82,22 @@ class ApiClient {
   Future<Usuario> definirAtivo(String id, bool ativo) async =>
       Usuario.fromJson(await _patch('/auth/usuarios/$id/ativo', {'ativo': ativo}));
 
+  Future<Usuario> editarUsuario(String id, String nome, String email, String telefone) async =>
+      Usuario.fromJson(await _put('/auth/usuarios/$id',
+          {'nomeCompleto': nome, 'email': email, 'telefone': telefone}));
+
+  Future<Usuario> definirPapel(String id, String papel) async =>
+      Usuario.fromJson(await _put('/auth/usuarios/$id/papel', {'papel': papel}));
+
   Future<void> excluirUsuario(String id) async => await _delete('/auth/usuarios/$id');
 
   // ---------- Dashboard ----------
   Future<DashboardResumo> dashboard() async =>
       DashboardResumo.fromJson(await _get('/dashboard/resumo'));
+
+  // ---------- Análises (admin) ----------
+  Future<AnaliseCaixa> analiseCaixa() async =>
+      AnaliseCaixa.fromJson(await _get('/analise/caixa'));
 
   // ---------- Quadras ----------
   Future<List<Quadra>> quadras({bool incluirInativas = false}) async {
@@ -128,6 +139,22 @@ class ApiClient {
 
   Future<Agendamento> alterarStatusAgendamento(String id, int status) async =>
       Agendamento.fromJson(await _patch('/agendamentos/$id/status', {'status': status}));
+
+  /// Reserva de quadra feita pelo professor logado para dar aula.
+  Future<Agendamento> reservarAula(Map<String, dynamic> body) async =>
+      Agendamento.fromJson(await _post('/agendamentos/aula', body));
+
+  // ---------- Professores ----------
+  Future<List<Professor>> professores() async {
+    final data = await _get('/professores');
+    return (data as List).map((e) => Professor.fromJson(e)).toList();
+  }
+
+  Future<Professor> meuPrecoAula() async =>
+      Professor.fromJson(await _get('/professores/me'));
+
+  Future<Professor> definirPrecoProfessor(String id, double precoAula) async =>
+      Professor.fromJson(await _put('/professores/$id/preco', {'precoAula': precoAula}));
 
   // ---------- Bloqueios ----------
   Future<List<Bloqueio>> bloqueios({String? quadraId, bool incluirPassados = false}) async {
@@ -221,6 +248,11 @@ class ApiClient {
     final data = await _get('/competicao/alunos');
     return (data as List).map((e) => AlunoRef.fromJson(e)).toList();
   }
+
+  /// Criação de aluno pelo professor (papel sempre Aluno).
+  Future<AlunoRef> criarAluno(String nome, String email, String telefone, String senha) async =>
+      AlunoRef.fromJson(await _post('/professores/alunos',
+          {'nomeCompleto': nome, 'email': email, 'telefone': telefone, 'senha': senha}));
 
   Future<List<Competidor>> competidores(String modalidadeId) async {
     final data = await _get('/competicao/competidores', {'modalidadeId': modalidadeId});

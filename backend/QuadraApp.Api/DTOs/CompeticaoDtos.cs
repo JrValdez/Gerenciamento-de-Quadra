@@ -11,7 +11,7 @@ public record ModalidadeRequest(
     bool Ativa = true);
 
 // ----- Alunos (para seleção) -----
-public record AlunoDto(Guid Id, string Nome, string Email);
+public record AlunoDto(Guid Id, string Nome, string Email, string? Telefone = null);
 
 // ----- Competidores -----
 public record MembroDto(Guid AlunoId, string AlunoNome);
