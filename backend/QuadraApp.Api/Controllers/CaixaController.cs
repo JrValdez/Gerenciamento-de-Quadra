@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QuadraApp.Api.Data;
 using QuadraApp.Api.DTOs;
+using QuadraApp.Api.Infra;
 using QuadraApp.Api.Models;
 
 namespace QuadraApp.Api.Controllers;
@@ -40,6 +41,8 @@ public class CaixaController : ControllerBase
     [HttpPost("abrir")]
     public async Task<ActionResult<CaixaDto>> Abrir(AbrirCaixaRequest req)
     {
+        // Checagem rápida para a UX; o índice único parcial (só um caixa Aberto) é a
+        // garantia real caso duas aberturas cheguem ao mesmo tempo.
         if (await _db.Caixas.AnyAsync(c => c.Status == StatusCaixa.Aberto))
             return Conflict(new { erro = "Já existe um caixa aberto." });
 
@@ -51,7 +54,14 @@ public class CaixaController : ControllerBase
             Status = StatusCaixa.Aberto,
         };
         _db.Caixas.Add(caixa);
-        await _db.SaveChangesAsync();
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (PgErros.EhViolacaoUnica(ex))
+        {
+            return Conflict(new { erro = "Já existe um caixa aberto." });
+        }
         return Ok(Map(caixa));
     }
 

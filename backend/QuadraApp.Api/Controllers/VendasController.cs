@@ -55,13 +55,23 @@ public class VendasController : ControllerBase
         decimal total = 0;
         foreach (var item in req.Itens)
         {
+            if (item.Quantidade <= 0)
+                return BadRequest(new { erro = "Quantidade inválida." });
+
             var produto = produtos.FirstOrDefault(p => p.Id == item.ProdutoId);
             if (produto is null || !produto.Ativo)
                 return BadRequest(new { erro = $"Produto {item.ProdutoId} indisponível." });
-            if (produto.EstoqueQuantidade < item.Quantidade)
+
+            // Baixa de estoque atômica: o WHERE só decrementa se ainda houver saldo, e o
+            // UPDATE trava a linha. Duas vendas simultâneas do mesmo produto não conseguem
+            // vender além do disponível — a que ficar sem saldo recebe 0 linhas afetadas.
+            var baixou = await _db.Produtos
+                .Where(p => p.Id == produto.Id && p.EstoqueQuantidade >= item.Quantidade)
+                .ExecuteUpdateAsync(s => s.SetProperty(
+                    p => p.EstoqueQuantidade, p => p.EstoqueQuantidade - item.Quantidade));
+            if (baixou == 0)
                 return BadRequest(new { erro = $"Estoque insuficiente para {produto.Nome}." });
 
-            produto.EstoqueQuantidade -= item.Quantidade;
             var subtotal = Math.Round(produto.Preco * item.Quantidade, 2);
             total += subtotal;
 

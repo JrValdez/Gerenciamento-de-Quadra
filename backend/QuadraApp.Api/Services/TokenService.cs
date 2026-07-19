@@ -31,6 +31,8 @@ public class TokenService
             new(JwtRegisteredClaimNames.Email, usuario.Email ?? string.Empty),
             new(ClaimTypes.NameIdentifier, usuario.Id.ToString()),
             new("nome", usuario.NomeCompleto),
+            // Usado na validação server-side (revogação por troca de senha/reset).
+            new("sstamp", usuario.SecurityStamp ?? string.Empty),
         };
         claims.AddRange(papeis.Select(p => new Claim(ClaimTypes.Role, p)));
 

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QuadraApp.Api.Data;
 using QuadraApp.Api.DTOs;
+using QuadraApp.Api.Infra;
 using QuadraApp.Api.Models;
 
 namespace QuadraApp.Api.Controllers;
@@ -141,7 +142,16 @@ public class AgendamentosController : ControllerBase
             CupomCodigo = cupom?.Codigo,
         };
         _db.Agendamentos.Add(ag);
-        await _db.SaveChangesAsync();
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (PgErros.EhOverlap(ex))
+        {
+            // Rede de segurança da constraint de exclusão: duas reservas concorrentes
+            // do mesmo horário — só uma passa, a outra cai aqui.
+            return Conflict(new { erro = "Já existe reserva nesse horário." });
+        }
         await EnsureClienteAsync(req.NomeCliente, req.EmailCliente);
         ag.Quadra = quadra;
         return CreatedAtAction(nameof(Obter), new { id = ag.Id }, Map(ag));
@@ -253,7 +263,16 @@ public class AgendamentosController : ControllerBase
             CriadoPorUserId = UsuarioAtual(),
         };
         _db.Agendamentos.Add(ag);
-        await _db.SaveChangesAsync();
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (PgErros.EhOverlap(ex))
+        {
+            // Rede de segurança da constraint de exclusão: duas reservas concorrentes
+            // do mesmo horário — só uma passa, a outra cai aqui.
+            return Conflict(new { erro = "Já existe reserva nesse horário." });
+        }
         await EnsureClienteAsync(req.NomeCliente, req.EmailCliente);
         ag.Quadra = quadra;
         return CreatedAtAction(nameof(Obter), new { id = ag.Id }, Map(ag));
@@ -306,7 +325,14 @@ public class AgendamentosController : ControllerBase
             CriadoPorUserId = profId,
         };
         _db.Agendamentos.Add(ag);
-        await _db.SaveChangesAsync();
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (PgErros.EhOverlap(ex))
+        {
+            return Conflict(new { erro = "Já existe reserva nesse horário." });
+        }
         ag.Quadra = quadra;
         return CreatedAtAction(nameof(Obter), new { id = ag.Id }, Map(ag));
     }

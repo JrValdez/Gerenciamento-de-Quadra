@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -32,6 +33,16 @@ builder.Services
 var jwtSection = builder.Configuration.GetSection("Jwt");
 builder.Services.Configure<JwtOptions>(jwtSection);
 var jwt = jwtSection.Get<JwtOptions>()!;
+
+// Fail-fast: nunca subir com uma chave de assinatura ausente, curta ou de exemplo.
+const string JwtKeyExemplo = "troque-esta-chave-super-secreta-com-no-minimo-32-caracteres!!";
+if (string.IsNullOrWhiteSpace(jwt.Key) || jwt.Key.Length < 32)
+    throw new InvalidOperationException(
+        "Jwt:Key ausente ou curta demais. Defina Jwt__Key com uma chave aleatória de no mínimo 32 caracteres.");
+if (builder.Environment.IsProduction() && jwt.Key == JwtKeyExemplo)
+    throw new InvalidOperationException(
+        "Jwt:Key está usando o valor de exemplo em produção. Gere uma chave real (ex.: openssl rand -base64 48) e defina em Jwt__Key.");
+
 builder.Services.AddSingleton<TokenService>();
 
 builder.Services
@@ -53,17 +64,59 @@ builder.Services
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Key)),
             ClockSkew = TimeSpan.FromMinutes(1),
         };
+
+        // Revogação server-side: a cada requisição confere se o usuário ainda existe,
+        // está ativo e se o security stamp do token bate com o atual. Assim, inativar
+        // um usuário ou trocar a senha invalida imediatamente os tokens já emitidos
+        // (que, de outra forma, seguiriam válidos até expirar).
+        opt.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async ctx =>
+            {
+                var userManager = ctx.HttpContext.RequestServices
+                    .GetRequiredService<UserManager<ApplicationUser>>();
+                var userId = ctx.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+                var user = userId is null ? null : await userManager.FindByIdAsync(userId);
+
+                if (user is null || !user.Ativo)
+                {
+                    ctx.Fail("Usuário inválido ou inativo.");
+                    return;
+                }
+
+                if (userManager.SupportsUserSecurityStamp)
+                {
+                    var stampToken = ctx.Principal?.FindFirstValue("sstamp");
+                    var stampAtual = await userManager.GetSecurityStampAsync(user);
+                    if (!string.Equals(stampToken, stampAtual, StringComparison.Ordinal))
+                        ctx.Fail("Sessão expirada. Faça login novamente.");
+                }
+            }
+        };
     });
 
 builder.Services.AddAuthorization();
 
 // ----- CORS (Flutter web) -----
-const string CorsPolicy = "flutter";
+// Dev: liberado (a porta do `flutter run` varia a cada execução). Produção: apenas
+// as origens listadas em Cors:AllowedOrigins. No deploy padrão o front é servido
+// pelo mesmo host via nginx (proxy de /api), então a lista pode ficar vazia — ou
+// seja, nenhuma origem externa é aceita.
+const string CorsPolicy = "frontend";
 builder.Services.AddCors(opt =>
-    opt.AddPolicy(CorsPolicy, p => p
-        .AllowAnyOrigin()
-        .AllowAnyHeader()
-        .AllowAnyMethod()));
+    opt.AddPolicy(CorsPolicy, p =>
+    {
+        if (builder.Environment.IsDevelopment())
+        {
+            p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
+        }
+        else
+        {
+            var origins = builder.Configuration
+                .GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+            p.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod();
+        }
+    }));
 
 // ----- MVC / Swagger -----
 builder.Services.AddControllers();
@@ -86,8 +139,12 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-app.UseSwagger();
-app.UseSwaggerUI();
+// Swagger apenas fora de produção — não expor a superfície da API publicamente.
+if (!app.Environment.IsProduction())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
 app.UseCors(CorsPolicy);
 app.UseAuthentication();
