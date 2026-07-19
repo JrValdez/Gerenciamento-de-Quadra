@@ -7,6 +7,7 @@ using QuadraApp.Api.Data;
 using QuadraApp.Api.DTOs;
 using QuadraApp.Api.Infra;
 using QuadraApp.Api.Models;
+using QuadraApp.Api.Services;
 
 namespace QuadraApp.Api.Controllers;
 
@@ -16,11 +17,14 @@ public class AgendamentosController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly AgendamentoService _svc;
 
-    public AgendamentosController(AppDbContext db, UserManager<ApplicationUser> userManager)
+    public AgendamentosController(
+        AppDbContext db, UserManager<ApplicationUser> userManager, AgendamentoService svc)
     {
         _db = db;
         _userManager = userManager;
+        _svc = svc;
     }
 
     /// <summary>
@@ -56,52 +60,11 @@ public class AgendamentosController : ControllerBase
             a.Status, a.ValorTotal, a.Observacoes, a.CriadoEm,
             a.ValorDesconto, a.CupomCodigo);
 
-    /// <summary>
-    /// Resolve e valida um cupom para um valor bruto. Retorna o cupom, o desconto a abater
-    /// e uma mensagem de erro (quando o código foi informado mas é inválido/expirado).
-    /// </summary>
-    private async Task<(Cupom? cupom, decimal desconto, string? erro)> ResolverCupomAsync(
-        string? codigo, decimal bruto)
-    {
-        if (string.IsNullOrWhiteSpace(codigo)) return (null, 0m, null);
-
-        var cod = codigo.Trim().ToUpperInvariant();
-        var cupom = await _db.Cupons.FirstOrDefaultAsync(c => c.Codigo == cod);
-        if (cupom is null) return (null, 0m, "Cupom não encontrado.");
-        if (!cupom.Ativo) return (null, 0m, "Cupom inativo.");
-        if (cupom.ValidoAte < DateTime.UtcNow) return (null, 0m, "Cupom expirado.");
-
-        var desconto = cupom.Tipo == TipoDesconto.Percentual
-            ? Math.Round(bruto * cupom.Valor / 100m, 2)
-            : cupom.Valor;
-        if (desconto > bruto) desconto = bruto;
-        return (cupom, desconto, null);
-    }
-
     private Guid? UsuarioAtual()
     {
         var id = User.FindFirstValue(ClaimTypes.NameIdentifier);
         return Guid.TryParse(id, out var g) ? g : null;
     }
-
-    private async Task<bool> ExisteConflito(Guid quadraId, DateTime inicio, DateTime fim, Guid? ignorarId = null)
-    {
-        return await _db.Agendamentos.AnyAsync(a =>
-            a.QuadraId == quadraId &&
-            a.Status != StatusAgendamento.Cancelado &&
-            (ignorarId == null || a.Id != ignorarId) &&
-            inicio < a.Fim && a.Inicio < fim);
-    }
-
-    private static decimal CalcularValor(Quadra quadra, DateTime inicio, DateTime fim)
-    {
-        var horas = (decimal)(fim - inicio).TotalHours;
-        return Math.Round(quadra.PrecoHora * horas, 2);
-    }
-
-    private async Task<bool> ExisteBloqueio(Guid quadraId, DateTime inicio, DateTime fim) =>
-        await _db.Bloqueios.AnyAsync(b =>
-            b.QuadraId == quadraId && inicio < b.Fim && b.Inicio < fim);
 
     // ----- Público: agendar sem login -----
     [HttpPost("publico")]
@@ -117,13 +80,13 @@ public class AgendamentosController : ControllerBase
         if (quadra is null || !quadra.Ativa)
             return BadRequest(new { erro = "Quadra indisponível." });
 
-        if (await ExisteConflito(req.QuadraId, req.Inicio, req.Fim))
+        if (await _svc.ExisteConflitoAsync(req.QuadraId, req.Inicio, req.Fim))
             return Conflict(new { erro = "Já existe reserva nesse horário." });
-        if (await ExisteBloqueio(req.QuadraId, req.Inicio, req.Fim))
+        if (await _svc.ExisteBloqueioAsync(req.QuadraId, req.Inicio, req.Fim))
             return Conflict(new { erro = "Quadra bloqueada nesse horário." });
 
-        var bruto = CalcularValor(quadra, req.Inicio, req.Fim);
-        var (cupom, desconto, erroCupom) = await ResolverCupomAsync(req.CupomCodigo, bruto);
+        var bruto = AgendamentoService.CalcularValor(quadra.PrecoHora, req.Inicio, req.Fim);
+        var (cupom, desconto, erroCupom) = await _svc.ResolverCupomAsync(req.CupomCodigo, bruto);
         if (erroCupom is not null) return BadRequest(new { erro = erroCupom });
 
         var ag = new Agendamento
@@ -237,13 +200,13 @@ public class AgendamentosController : ControllerBase
         var quadra = await _db.Quadras.FindAsync(req.QuadraId);
         if (quadra is null) return BadRequest(new { erro = "Quadra inexistente." });
 
-        if (await ExisteConflito(req.QuadraId, req.Inicio, req.Fim))
+        if (await _svc.ExisteConflitoAsync(req.QuadraId, req.Inicio, req.Fim))
             return Conflict(new { erro = "Já existe reserva nesse horário." });
-        if (await ExisteBloqueio(req.QuadraId, req.Inicio, req.Fim))
+        if (await _svc.ExisteBloqueioAsync(req.QuadraId, req.Inicio, req.Fim))
             return Conflict(new { erro = "Quadra bloqueada nesse horário. Remova o bloqueio para reservar." });
 
-        var bruto = CalcularValor(quadra, req.Inicio, req.Fim);
-        var (cupom, desconto, erroCupom) = await ResolverCupomAsync(req.CupomCodigo, bruto);
+        var bruto = AgendamentoService.CalcularValor(quadra.PrecoHora, req.Inicio, req.Fim);
+        var (cupom, desconto, erroCupom) = await _svc.ResolverCupomAsync(req.CupomCodigo, bruto);
         if (erroCupom is not null) return BadRequest(new { erro = erroCupom });
 
         var ag = new Agendamento
@@ -298,13 +261,12 @@ public class AgendamentosController : ControllerBase
         if (quadra is null || !quadra.Ativa)
             return BadRequest(new { erro = "Quadra indisponível." });
 
-        if (await ExisteConflito(req.QuadraId, req.Inicio, req.Fim))
+        if (await _svc.ExisteConflitoAsync(req.QuadraId, req.Inicio, req.Fim))
             return Conflict(new { erro = "Já existe reserva nesse horário." });
-        if (await ExisteBloqueio(req.QuadraId, req.Inicio, req.Fim))
+        if (await _svc.ExisteBloqueioAsync(req.QuadraId, req.Inicio, req.Fim))
             return Conflict(new { erro = "Quadra bloqueada nesse horário." });
 
-        var horas = (decimal)(req.Fim - req.Inicio).TotalHours;
-        var valor = Math.Round(professor.PrecoAula * horas, 2);
+        var valor = AgendamentoService.CalcularValor(professor.PrecoAula, req.Inicio, req.Fim);
 
         var obs = string.IsNullOrWhiteSpace(req.Observacoes)
             ? "Aula"

@@ -1,11 +1,14 @@
 using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using QuadraApp.Api.Data;
+using QuadraApp.Api.Infra;
 using QuadraApp.Api.Models;
 using QuadraApp.Api.Services;
 
@@ -118,8 +121,44 @@ builder.Services.AddCors(opt =>
         }
     }));
 
+// ----- Regras de domínio (camada de aplicação) -----
+builder.Services.AddScoped<AgendamentoService>();
+
+// ----- Erros, saúde e observabilidade -----
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+
+builder.Services.AddHealthChecks()
+    .AddCheck<DbHealthCheck>("db");
+
+// Log de acesso enxuto: método, rota, status e duração. NÃO registra corpo nem
+// cabeçalhos (evita vazar senha no login e o token no Authorization).
+builder.Services.AddHttpLogging(o =>
+{
+    o.LoggingFields = HttpLoggingFields.RequestMethod
+        | HttpLoggingFields.RequestPath
+        | HttpLoggingFields.ResponseStatusCode
+        | HttpLoggingFields.Duration;
+    o.CombineLogs = true;
+});
+
 // ----- MVC / Swagger -----
 builder.Services.AddControllers();
+
+// Respostas de validação (400) no mesmo formato { erro } que os controllers usam,
+// para o cliente exibir a mensagem em vez de um "Erro 400" genérico.
+builder.Services.Configure<ApiBehaviorOptions>(opt =>
+{
+    opt.InvalidModelStateResponseFactory = ctx =>
+    {
+        var msg = ctx.ModelState.Values
+            .SelectMany(v => v.Errors)
+            .Select(e => e.ErrorMessage)
+            .FirstOrDefault(m => !string.IsNullOrWhiteSpace(m)) ?? "Dados inválidos.";
+        return new BadRequestObjectResult(new { erro = msg });
+    };
+});
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -139,6 +178,11 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
+// Converte qualquer exceção não tratada num JSON consistente (sem stack trace em prod).
+app.UseExceptionHandler();
+
+app.UseHttpLogging();
+
 // Swagger apenas fora de produção — não expor a superfície da API publicamente.
 if (!app.Environment.IsProduction())
 {
@@ -150,6 +194,9 @@ app.UseCors(CorsPolicy);
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+// Liveness/readiness para orquestração (Docker healthcheck, reverse proxy). Anônimo.
+app.MapHealthChecks("/health");
 
 // ----- Migração + seed automáticos -----
 await DbSeeder.SeedAsync(app.Services);

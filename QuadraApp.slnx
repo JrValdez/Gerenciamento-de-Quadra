@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/backend/">
     <Project Path="backend/QuadraApp.Api/QuadraApp.Api.csproj" />
+    <Project Path="backend/QuadraApp.Api.Tests/QuadraApp.Api.Tests.csproj" />
   </Folder>
 </Solution>

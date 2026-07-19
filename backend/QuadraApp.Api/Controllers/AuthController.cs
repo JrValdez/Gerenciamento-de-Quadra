@@ -108,13 +108,23 @@ public class AuthController : ControllerBase
     [Authorize(Roles = $"{Roles.Admin},{Roles.Atendente}")]
     public async Task<ActionResult<IEnumerable<UsuarioDto>>> Usuarios()
     {
-        var users = _userManager.Users.OrderBy(u => u.NomeCompleto).ToList();
-        var lista = new List<UsuarioDto>();
-        foreach (var u in users)
-        {
-            var papeis = await _userManager.GetRolesAsync(u);
-            lista.Add(new UsuarioDto(u.Id, u.NomeCompleto, u.Email!, papeis, u.Ativo, u.PhoneNumber));
-        }
+        var users = await _userManager.Users.OrderBy(u => u.NomeCompleto).ToListAsync();
+
+        // Papéis de todos os usuários em UMA consulta (evita o N+1 de um GetRolesAsync
+        // por usuário): junta UserRoles com Roles e agrupa por usuário.
+        var papeisPorUsuario = await (
+            from ur in _db.UserRoles
+            join r in _db.Roles on ur.RoleId equals r.Id
+            select new { ur.UserId, r.Name })
+            .ToListAsync();
+        var mapa = papeisPorUsuario
+            .GroupBy(x => x.UserId)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.Name!).ToList());
+
+        var lista = users.Select(u => new UsuarioDto(
+            u.Id, u.NomeCompleto, u.Email!,
+            mapa.TryGetValue(u.Id, out var papeis) ? papeis : new List<string>(),
+            u.Ativo, u.PhoneNumber));
         return Ok(lista);
     }
 
