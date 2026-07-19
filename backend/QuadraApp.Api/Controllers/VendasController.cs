@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QuadraApp.Api.Data;
 using QuadraApp.Api.DTOs;
+using QuadraApp.Api.Infra;
 using QuadraApp.Api.Models;
 
 namespace QuadraApp.Api.Controllers;
@@ -24,11 +25,17 @@ public class VendasController : ControllerBase
             v.Itens.Select(i => new VendaItemDto(i.ProdutoId, i.ProdutoNome, i.Quantidade, i.PrecoUnitario, i.Subtotal)));
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<VendaDto>>> Listar([FromQuery] Guid? caixaId)
+    public async Task<ActionResult<IEnumerable<VendaDto>>> Listar(
+        [FromQuery] Guid? caixaId, [FromQuery] int? page, [FromQuery] int? pageSize)
     {
         var query = _db.Vendas.AsNoTracking().Include(v => v.Itens).AsQueryable();
         if (caixaId is not null) query = query.Where(v => v.CaixaId == caixaId);
-        var itens = await query.OrderByDescending(v => v.CriadoEm).Take(200).ToListAsync();
+
+        var pg = Paginacao.De(page, pageSize, padrao: 200, max: 500);
+        Response.Headers["X-Total-Count"] = (await query.CountAsync()).ToString();
+
+        var itens = await query.OrderByDescending(v => v.CriadoEm)
+            .Skip(pg.Skip).Take(pg.PageSize).ToListAsync();
         return Ok(itens.Select(Map));
     }
 

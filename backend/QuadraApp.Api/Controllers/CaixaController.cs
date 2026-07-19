@@ -83,10 +83,15 @@ public class CaixaController : ControllerBase
 
     /// <summary>Histórico de caixas (fechados e aberto).</summary>
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<CaixaDto>>> Listar()
+    public async Task<ActionResult<IEnumerable<CaixaDto>>> Listar(
+        [FromQuery] int? page, [FromQuery] int? pageSize)
     {
+        var pg = Paginacao.De(page, pageSize, padrao: 90, max: 365);
+        Response.Headers["X-Total-Count"] = (await _db.Caixas.CountAsync()).ToString();
+
         var caixas = await _db.Caixas.Include(c => c.Movimentacoes)
-            .OrderByDescending(c => c.AbertoEm).Take(90).ToListAsync();
+            .OrderByDescending(c => c.AbertoEm)
+            .Skip(pg.Skip).Take(pg.PageSize).ToListAsync();
         return Ok(caixas.Select(Map));
     }
 

@@ -18,13 +18,16 @@ public class AgendamentosController : ControllerBase
     private readonly AppDbContext _db;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly AgendamentoService _svc;
+    private readonly TimeZoneInfo _fuso;
 
     public AgendamentosController(
-        AppDbContext db, UserManager<ApplicationUser> userManager, AgendamentoService svc)
+        AppDbContext db, UserManager<ApplicationUser> userManager,
+        AgendamentoService svc, TimeZoneInfo fuso)
     {
         _db = db;
         _userManager = userManager;
         _svc = svc;
+        _fuso = fuso;
     }
 
     /// <summary>
@@ -130,12 +133,10 @@ public class AgendamentosController : ControllerBase
         var quadra = await _db.Quadras.AsNoTracking().FirstOrDefaultAsync(q => q.Id == quadraId);
         if (quadra is null) return NotFound(new { erro = "Quadra não encontrada." });
 
-        // Horários montados em hora local do servidor e convertidos para UTC
-        // (o cliente reconverte para o fuso local ao exibir).
-        var inicioDia = new DateTime(dia.Year, dia.Month, dia.Day, quadra.HoraAbertura, 0, 0, DateTimeKind.Local)
-            .ToUniversalTime();
-        var fimDia = new DateTime(dia.Year, dia.Month, dia.Day, quadra.HoraFechamento, 0, 0, DateTimeKind.Local)
-            .ToUniversalTime();
+        // Horários montados no fuso do estabelecimento e convertidos para UTC — não
+        // dependem do fuso do processo do servidor (o cliente reconverte ao exibir).
+        var inicioDia = Horario.LocalParaUtc(dia.Year, dia.Month, dia.Day, quadra.HoraAbertura, _fuso);
+        var fimDia = Horario.LocalParaUtc(dia.Year, dia.Month, dia.Day, quadra.HoraFechamento, _fuso);
 
         var reservas = await _db.Agendamentos.AsNoTracking()
             .Where(a => a.QuadraId == quadraId &&
@@ -167,7 +168,9 @@ public class AgendamentosController : ControllerBase
         [FromQuery] DateTime? de,
         [FromQuery] DateTime? ate,
         [FromQuery] Guid? quadraId,
-        [FromQuery] StatusAgendamento? status)
+        [FromQuery] StatusAgendamento? status,
+        [FromQuery] int? page,
+        [FromQuery] int? pageSize)
     {
         var query = _db.Agendamentos.AsNoTracking().Include(a => a.Quadra).AsQueryable();
         if (de is not null) query = query.Where(a => a.Inicio >= de);
@@ -175,7 +178,11 @@ public class AgendamentosController : ControllerBase
         if (quadraId is not null) query = query.Where(a => a.QuadraId == quadraId);
         if (status is not null) query = query.Where(a => a.Status == status);
 
+        var pg = Paginacao.De(page, pageSize, padrao: 200, max: 500);
+        Response.Headers["X-Total-Count"] = (await query.CountAsync()).ToString();
+
         var itens = await query.OrderByDescending(a => a.Inicio)
+            .Skip(pg.Skip).Take(pg.PageSize)
             .Select(a => Map(a)).ToListAsync();
         return Ok(itens);
     }

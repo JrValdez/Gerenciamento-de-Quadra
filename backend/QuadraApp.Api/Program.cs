@@ -121,6 +121,10 @@ builder.Services.AddCors(opt =>
         }
     }));
 
+// ----- Fuso do estabelecimento (montagem de horários) -----
+var tzId = builder.Configuration["App:TimeZone"] ?? "America/Sao_Paulo";
+builder.Services.AddSingleton(TimeZoneInfo.FindSystemTimeZoneById(tzId));
+
 // ----- Regras de domínio (camada de aplicação) -----
 builder.Services.AddScoped<AgendamentoService>();
 
