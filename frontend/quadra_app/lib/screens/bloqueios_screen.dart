@@ -210,7 +210,7 @@ class _BloqueioDialogState extends State<_BloqueioDialog> {
     return AlertDialog(
       title: const Text('Bloquear horário'),
       content: SizedBox(
-        width: 420,
+        width: dialogW(context, 420),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

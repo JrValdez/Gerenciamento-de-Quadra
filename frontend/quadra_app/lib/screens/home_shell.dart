@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../auth_provider.dart';
+import '../theme.dart';
 import 'dashboard_screen.dart';
 import 'agendamentos_screen.dart';
 import 'quadras_screen.dart';
@@ -60,6 +61,92 @@ class _HomeShellState extends State<HomeShell> {
     }
     if (_index >= paginas.length) _index = 0;
 
+    // ----- Celular / tela estreita: AppBar + menu em gaveta (rola, cabe em telas baixas) -----
+    if (isCompact(context)) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(paginas[_index].label,
+              maxLines: 1, overflow: TextOverflow.ellipsis),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: CircleAvatar(
+                radius: 16,
+                backgroundColor: const Color(0xFF1B7A3D),
+                child: Text(
+                  usuario.nomeCompleto.isNotEmpty
+                      ? usuario.nomeCompleto[0].toUpperCase()
+                      : '?',
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                ),
+              ),
+            ),
+          ],
+        ),
+        drawer: Drawer(
+          child: SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.sports_tennis, color: Color(0xFF1B7A3D), size: 28),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(usuario.nomeCompleto,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontWeight: FontWeight.w600)),
+                            Text(usuario.papeis.join(', '),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: ListView(
+                    children: [
+                      for (var i = 0; i < paginas.length; i++)
+                        ListTile(
+                          leading: Icon(paginas[i].icon),
+                          title: Text(paginas[i].label),
+                          selected: i == _index,
+                          selectedTileColor: const Color(0xFFE7F3EB),
+                          onTap: () {
+                            setState(() => _index = i);
+                            Navigator.pop(context);
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.logout),
+                  title: const Text('Sair'),
+                  onTap: () async {
+                    await auth.logout();
+                    if (context.mounted) Navigator.pushReplacementNamed(context, '/');
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+        body: paginas[_index].tela,
+      );
+    }
+
+    // ----- Desktop / tela larga: NavigationRail lateral -----
     return Scaffold(
       body: Row(
         children: [

@@ -233,9 +233,10 @@ class _ProdutoDialogState extends State<_ProdutoDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      scrollable: true,
       title: Text(widget.produto == null ? 'Novo produto' : 'Editar produto'),
       content: SizedBox(
-        width: MediaQuery.sizeOf(context).width.clamp(0.0, 488.0) - 88,
+        width: dialogW(context, 488),
         child: Form(
           key: _form,
           child: Column(
@@ -359,8 +360,8 @@ class _VendaDialogState extends State<_VendaDialog> {
     return AlertDialog(
       title: const Text('Venda rápida'),
       content: SizedBox(
-        width: 460,
-        height: 460,
+        width: dialogW(context, 460),
+        height: dialogH(context, 460),
         child: Column(
           children: [
             Expanded(

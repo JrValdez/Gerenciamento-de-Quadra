@@ -140,6 +140,8 @@ ThemeData _build() {
     dialogTheme: DialogThemeData(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       backgroundColor: Colors.white,
+      // Inset menor para o diálogo aproveitar mais a largura em telas de celular.
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
     ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
@@ -159,3 +161,20 @@ final moeda = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
 final dataHora = DateFormat('dd/MM/yyyy HH:mm', 'pt_BR');
 final dataFmt = DateFormat('dd/MM/yyyy', 'pt_BR');
 final horaFmt = DateFormat('HH:mm', 'pt_BR');
+
+/// Largura responsiva para o conteúdo de um diálogo: usa [max] em telas largas e
+/// encolhe até caber nas menores, evitando overflow horizontal no celular.
+/// Desconta a inset do diálogo (16*2) e o padding interno do AlertDialog (24*2).
+double dialogW(BuildContext context, [double max = 460]) {
+  final disponivel = MediaQuery.sizeOf(context).width - 80;
+  return disponivel < max ? disponivel : max;
+}
+
+/// Altura responsiva para diálogos de altura fixa (não estoura em telas baixas).
+double dialogH(BuildContext context, double max) {
+  final disponivel = MediaQuery.sizeOf(context).height - 200;
+  return disponivel < max ? disponivel : max;
+}
+
+/// Ponto de corte: abaixo disso usamos layout de celular (menu em gaveta).
+bool isCompact(BuildContext context) => MediaQuery.sizeOf(context).width < 800;

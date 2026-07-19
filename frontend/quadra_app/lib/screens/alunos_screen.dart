@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../api_client.dart';
 import '../models.dart';
+import '../theme.dart';
 
 /// Tela do professor: cadastrar e consultar alunos (papel Aluno).
 class AlunosScreen extends StatefulWidget {
@@ -143,9 +144,10 @@ class _AlunoDialogState extends State<_AlunoDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      scrollable: true,
       title: const Text('Novo aluno'),
       content: SizedBox(
-        width: MediaQuery.sizeOf(context).width.clamp(0.0, 488.0) - 88,
+        width: dialogW(context, 488),
         child: Form(
           key: _form,
           child: Column(

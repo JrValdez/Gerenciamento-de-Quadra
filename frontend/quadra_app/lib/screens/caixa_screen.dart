@@ -260,9 +260,10 @@ class _MovDialogState extends State<_MovDialog> {
   Widget build(BuildContext context) {
     final entrada = widget.tipo == 0;
     return AlertDialog(
+      scrollable: true,
       title: Text(entrada ? 'Suprimento (entrada)' : 'Sangria (saída)'),
       content: SizedBox(
-        width: MediaQuery.sizeOf(context).width.clamp(0.0, 448.0) - 88,
+        width: dialogW(context, 448),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

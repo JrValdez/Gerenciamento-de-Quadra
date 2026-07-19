@@ -256,7 +256,7 @@ class _CupomDialogState extends State<_CupomDialog> {
     return AlertDialog(
       title: Text(widget.cupom == null ? 'Novo cupom' : 'Editar cupom'),
       content: SizedBox(
-        width: 420,
+        width: dialogW(context, 420),
         child: Form(
           key: _form,
           child: Column(

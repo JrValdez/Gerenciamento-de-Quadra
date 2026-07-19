@@ -226,35 +226,54 @@ class _CompetidoresTabState extends State<_CompetidoresTab> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 260,
-                child: DropdownButtonFormField<Modalidade>(
-                  initialValue: _modalidade,
-                  decoration: const InputDecoration(labelText: 'Modalidade', isDense: true),
-                  items: _modalidades
-                      .map((m) => DropdownMenuItem(value: m, child: Text(m.nome)))
-                      .toList(),
-                  onChanged: (m) {
-                    setState(() => _modalidade = m);
-                    _carregarCompetidores();
-                  },
-                ),
-              ),
-              const Spacer(),
-              OutlinedButton.icon(
+          child: LayoutBuilder(
+            builder: (context, c) {
+              final estreito = c.maxWidth < 520;
+              final dropdown = DropdownButtonFormField<Modalidade>(
+                initialValue: _modalidade,
+                decoration: const InputDecoration(labelText: 'Modalidade', isDense: true),
+                items: _modalidades
+                    .map((m) => DropdownMenuItem(value: m, child: Text(m.nome)))
+                    .toList(),
+                onChanged: (m) {
+                  setState(() => _modalidade = m);
+                  _carregarCompetidores();
+                },
+              );
+              final btnIndividual = OutlinedButton.icon(
                 onPressed: () => _adicionar(0),
                 icon: const Icon(Icons.person_add),
                 label: const Text('Individual'),
-              ),
-              const SizedBox(width: 10),
-              FilledButton.icon(
+              );
+              final btnTime = FilledButton.icon(
                 onPressed: () => _adicionar(1),
                 icon: const Icon(Icons.groups),
                 label: const Text('Adicionar time'),
-              ),
-            ],
+              );
+              if (estreito) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    dropdown,
+                    const SizedBox(height: 10),
+                    Row(children: [
+                      Expanded(child: btnIndividual),
+                      const SizedBox(width: 10),
+                      Expanded(child: btnTime),
+                    ]),
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  SizedBox(width: 260, child: dropdown),
+                  const Spacer(),
+                  btnIndividual,
+                  const SizedBox(width: 10),
+                  btnTime,
+                ],
+              );
+            },
           ),
         ),
         Expanded(
@@ -374,8 +393,8 @@ class _CompetidorDialogState extends State<_CompetidorDialog> {
     return AlertDialog(
       title: Text('${_tipo == 1 ? 'Novo time' : 'Novo competidor individual'} • ${widget.modalidade.nome}'),
       content: SizedBox(
-        width: 440,
-        height: 460,
+        width: dialogW(context, 440),
+        height: dialogH(context, 460),
         child: _carregando
             ? const Center(child: CircularProgressIndicator())
             : Column(
@@ -552,7 +571,7 @@ class _PontosTabState extends State<_PontosTab> {
                       ),
                     ),
                     SizedBox(
-                      width: 280,
+                      width: (MediaQuery.sizeOf(context).width - 64).clamp(180.0, 280.0),
                       child: DropdownButtonFormField<Competidor>(
                         initialValue: _competidor,
                         decoration: const InputDecoration(labelText: 'Competidor', isDense: true),
@@ -574,7 +593,7 @@ class _PontosTabState extends State<_PontosTab> {
                       ),
                     ),
                     SizedBox(
-                      width: 300,
+                      width: (MediaQuery.sizeOf(context).width - 64).clamp(180.0, 300.0),
                       child: TextField(
                         controller: _motivo,
                         decoration: const InputDecoration(

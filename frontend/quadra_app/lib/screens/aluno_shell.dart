@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../auth_provider.dart';
+import '../theme.dart';
 import 'competicao/classificacao_view.dart';
 
 /// Área do Aluno: acompanha a classificação da competição (somente leitura).
@@ -27,8 +28,10 @@ class AlunoShell extends StatelessWidget {
           Text('Competição'),
         ]),
         actions: [
-          Center(child: Text(usuario.nomeCompleto)),
-          const SizedBox(width: 8),
+          if (!isCompact(context)) ...[
+            Center(child: Text(usuario.nomeCompleto)),
+            const SizedBox(width: 8),
+          ],
           IconButton(
             tooltip: 'Sair',
             icon: const Icon(Icons.logout),

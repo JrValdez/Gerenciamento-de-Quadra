@@ -81,7 +81,7 @@ class _ClassificacaoViewState extends State<ClassificacaoView> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               SizedBox(
-                width: 260,
+                width: (MediaQuery.sizeOf(context).width - 64).clamp(180.0, 260.0),
                 child: DropdownButtonFormField<Modalidade>(
                   initialValue: _modalidade,
                   decoration: const InputDecoration(labelText: 'Modalidade', isDense: true),

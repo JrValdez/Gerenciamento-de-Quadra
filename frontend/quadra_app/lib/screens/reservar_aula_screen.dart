@@ -273,9 +273,10 @@ class _ReservaAulaDialogState extends State<_ReservaAulaDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      scrollable: true,
       title: const Text('Confirmar aula'),
       content: SizedBox(
-        width: MediaQuery.sizeOf(context).width.clamp(0.0, 468.0) - 88,
+        width: dialogW(context, 468),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

@@ -110,16 +110,29 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
           Text('Reserva de Quadras'),
         ]),
         actions: [
-          TextButton.icon(
-            onPressed: () => Navigator.pushNamed(context, '/ranking'),
-            icon: const Icon(Icons.emoji_events),
-            label: const Text('Ranking'),
-          ),
-          TextButton.icon(
-            onPressed: () => Navigator.pushNamed(context, '/login'),
-            icon: const Icon(Icons.lock_outline),
-            label: const Text('Área do funcionário'),
-          ),
+          if (isCompact(context)) ...[
+            IconButton(
+              tooltip: 'Ranking',
+              onPressed: () => Navigator.pushNamed(context, '/ranking'),
+              icon: const Icon(Icons.emoji_events),
+            ),
+            IconButton(
+              tooltip: 'Área do funcionário',
+              onPressed: () => Navigator.pushNamed(context, '/login'),
+              icon: const Icon(Icons.lock_outline),
+            ),
+          ] else ...[
+            TextButton.icon(
+              onPressed: () => Navigator.pushNamed(context, '/ranking'),
+              icon: const Icon(Icons.emoji_events),
+              label: const Text('Ranking'),
+            ),
+            TextButton.icon(
+              onPressed: () => Navigator.pushNamed(context, '/login'),
+              icon: const Icon(Icons.lock_outline),
+              label: const Text('Área do funcionário'),
+            ),
+          ],
           const SizedBox(width: 8),
         ],
       ),
@@ -463,9 +476,10 @@ class _ReservaDialogState extends State<_ReservaDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      scrollable: true,
       title: const Text('Confirmar reserva'),
       content: SizedBox(
-        width: MediaQuery.sizeOf(context).width.clamp(0.0, 468.0) - 88,
+        width: dialogW(context, 468),
         child: Form(
           key: _form,
           child: Column(

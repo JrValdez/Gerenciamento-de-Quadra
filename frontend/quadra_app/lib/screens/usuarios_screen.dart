@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../api_client.dart';
 import '../auth_provider.dart';
 import '../models.dart';
+import '../theme.dart';
 
 class UsuariosScreen extends StatefulWidget {
   const UsuariosScreen({super.key});
@@ -382,9 +383,10 @@ class _UsuarioDialogState extends State<_UsuarioDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      scrollable: true,
       title: const Text('Novo usuário'),
       content: SizedBox(
-        width: MediaQuery.sizeOf(context).width.clamp(0.0, 488.0) - 88,
+        width: dialogW(context, 488),
         child: Form(
           key: _form,
           child: Column(
@@ -505,9 +507,10 @@ class _EditarUsuarioDialogState extends State<_EditarUsuarioDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      scrollable: true,
       title: const Text('Editar usuário'),
       content: SizedBox(
-        width: MediaQuery.sizeOf(context).width.clamp(0.0, 488.0) - 88,
+        width: dialogW(context, 488),
         child: Form(
           key: _form,
           child: Column(

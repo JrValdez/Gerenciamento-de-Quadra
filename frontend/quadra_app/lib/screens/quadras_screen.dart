@@ -79,9 +79,9 @@ class _QuadrasScreenState extends State<QuadrasScreen> {
       body: _carregando
           ? const Center(child: CircularProgressIndicator())
           : GridView.extent(
-              padding: const EdgeInsets.all(24),
-              maxCrossAxisExtent: 360,
-              childAspectRatio: 1.7,
+              padding: const EdgeInsets.all(16),
+              maxCrossAxisExtent: 440,
+              childAspectRatio: 1.8,
               mainAxisSpacing: 16,
               crossAxisSpacing: 16,
               children: _itens.map((q) => _card(q, isAdmin)).toList(),
@@ -119,10 +119,19 @@ class _QuadrasScreenState extends State<QuadrasScreen> {
             const Spacer(),
             Row(
               children: [
-                Text(moeda.format(q.precoHora),
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const Text(' / hora'),
-                const Spacer(),
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(children: [
+                      TextSpan(
+                        text: moeda.format(q.precoHora),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const TextSpan(text: ' / hora'),
+                    ]),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
                 IconButton(onPressed: () => _editar(q), icon: const Icon(Icons.edit)),
                 if (isAdmin)
                   IconButton(onPressed: () => _excluir(q), icon: const Icon(Icons.delete_outline)),
@@ -193,9 +202,10 @@ class _QuadraDialogState extends State<_QuadraDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      scrollable: true,
       title: Text(widget.quadra == null ? 'Nova quadra' : 'Editar quadra'),
       content: SizedBox(
-        width: MediaQuery.sizeOf(context).width.clamp(0.0, 488.0) - 88,
+        width: dialogW(context, 488),
         child: Form(
           key: _form,
           child: Column(

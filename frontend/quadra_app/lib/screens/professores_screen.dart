@@ -133,9 +133,10 @@ class _PrecoDialogState extends State<_PrecoDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      scrollable: true,
       title: Text('Preço da aula • ${widget.professor.nomeCompleto}'),
       content: SizedBox(
-        width: MediaQuery.sizeOf(context).width.clamp(0.0, 428.0) - 88,
+        width: dialogW(context, 428),
         child: Form(
           key: _form,
           child: TextFormField(
