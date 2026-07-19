@@ -128,6 +128,10 @@ builder.Services.AddSingleton(TimeZoneInfo.FindSystemTimeZoneById(tzId));
 // ----- Regras de domínio (camada de aplicação) -----
 builder.Services.AddScoped<AgendamentoService>();
 
+// ----- E-mail (SMTP para redefinição de senha) -----
+builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Email:Smtp"));
+builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
+
 // ----- Erros, saúde e observabilidade -----
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();

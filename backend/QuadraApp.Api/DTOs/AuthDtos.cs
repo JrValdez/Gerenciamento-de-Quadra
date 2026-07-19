@@ -27,6 +27,15 @@ public record UsuarioDto(
 
 public record AtivoRequest([Required] bool Ativo);
 
+/// <summary>Solicitação de link de redefinição de senha.</summary>
+public record ForgotPasswordRequest([Required, EmailAddress] string Email);
+
+/// <summary>Redefinição efetiva da senha com o token recebido por e-mail.</summary>
+public record ResetPasswordRequest(
+    [Required, EmailAddress] string Email,
+    [Required] string Token,
+    [Required, MinLength(6)] string NovaSenha);
+
 /// <summary>Edição de dados básicos do usuário por Admin/Atendente.</summary>
 public record EditarUsuarioRequest(
     [Required] string NomeCompleto,

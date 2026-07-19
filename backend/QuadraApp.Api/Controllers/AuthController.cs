@@ -18,17 +18,26 @@ public class AuthController : ControllerBase
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly TokenService _tokenService;
     private readonly AppDbContext _db;
+    private readonly IEmailSender _emailSender;
+    private readonly IConfiguration _config;
+    private readonly ILogger<AuthController> _logger;
 
     public AuthController(
         UserManager<ApplicationUser> userManager,
         SignInManager<ApplicationUser> signInManager,
         TokenService tokenService,
-        AppDbContext db)
+        AppDbContext db,
+        IEmailSender emailSender,
+        IConfiguration config,
+        ILogger<AuthController> logger)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _tokenService = tokenService;
         _db = db;
+        _emailSender = emailSender;
+        _config = config;
+        _logger = logger;
     }
 
     /// <summary>True se o usuário autenticado é Admin.</summary>
@@ -54,6 +63,61 @@ public class AuthController : ControllerBase
 
         return Ok(new AuthResponse(token, expiraEm,
             new UsuarioDto(user.Id, user.NomeCompleto, user.Email!, papeis, user.Ativo)));
+    }
+
+    /// <summary>Envia um link de redefinição de senha por e-mail. Público.</summary>
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest req)
+    {
+        var user = await _userManager.FindByEmailAsync(req.Email);
+
+        // Só envia se o usuário existe e está ativo — mas a resposta é sempre a mesma,
+        // para não revelar quais e-mails estão cadastrados.
+        if (user is not null && user.Ativo)
+        {
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+            var baseUrl = (_config["App:AppBaseUrl"] ?? string.Empty).TrimEnd('/');
+            var link = $"{baseUrl}/#/redefinir-senha" +
+                       $"?email={Uri.EscapeDataString(user.Email!)}" +
+                       $"&token={Uri.EscapeDataString(token)}";
+
+            var html = $@"
+                <p>Olá,</p>
+                <p>Recebemos um pedido para redefinir a sua senha no <b>Gerenciamento de Quadra</b>.</p>
+                <p><a href=""{link}"">Clique aqui para criar uma nova senha</a>.</p>
+                <p>Se você não fez esse pedido, ignore este e-mail — sua senha continua a mesma.
+                O link expira em breve por segurança.</p>";
+
+            // Uma falha de envio não pode virar erro para o cliente (a resposta é
+            // sempre genérica) nem derrubar a requisição — apenas registramos.
+            try
+            {
+                await _emailSender.EnviarAsync(user.Email!, "Redefinição de senha", html);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Falha ao enviar e-mail de redefinição para {Email}.", user.Email);
+            }
+        }
+
+        return Ok(new { mensagem = "Se o e-mail estiver cadastrado, enviamos um link de redefinição." });
+    }
+
+    /// <summary>Redefine a senha usando o token recebido por e-mail. Público.</summary>
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ResetPassword(ResetPasswordRequest req)
+    {
+        var user = await _userManager.FindByEmailAsync(req.Email);
+        if (user is null)
+            return BadRequest(new { erro = "Não foi possível redefinir a senha." });
+
+        var resultado = await _userManager.ResetPasswordAsync(user, req.Token, req.NovaSenha);
+        if (!resultado.Succeeded)
+            return BadRequest(new { erro = "Link inválido ou expirado. Solicite um novo." });
+
+        return Ok(new { mensagem = "Senha redefinida com sucesso. Já pode entrar com a nova senha." });
     }
 
     /// <summary>Registro de novos usuários. Admin/Atendente.</summary>

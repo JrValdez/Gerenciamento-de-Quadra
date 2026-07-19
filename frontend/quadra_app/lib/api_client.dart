@@ -70,6 +70,15 @@ class ApiClient {
 
   Future<Usuario> me() async => Usuario.fromJson(await _get('/auth/me'));
 
+  /// Solicita o envio do link de redefinição de senha.
+  Future<void> esqueciSenha(String email) async =>
+      await _post('/auth/forgot-password', {'email': email});
+
+  /// Redefine a senha usando o token recebido por e-mail.
+  Future<void> redefinirSenha(String email, String token, String novaSenha) async =>
+      await _post('/auth/reset-password',
+          {'email': email, 'token': token, 'novaSenha': novaSenha});
+
   Future<Usuario> registrar(String nome, String email, String senha, String papel) async =>
       Usuario.fromJson(await _post('/auth/register',
           {'nomeCompleto': nome, 'email': email, 'senha': senha, 'papel': papel}));

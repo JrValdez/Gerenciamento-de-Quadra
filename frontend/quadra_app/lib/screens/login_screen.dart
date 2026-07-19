@@ -12,7 +12,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _form = GlobalKey<FormState>();
-  final _email = TextEditingController(text: 'admin@quadra.local');
+  final _email = TextEditingController();
   final _senha = TextEditingController();
   String? _erro;
 
@@ -93,7 +93,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
                           : const Text('Entrar'),
                     ),
-                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: () => Navigator.pushNamed(context, '/esqueci-senha'),
+                      child: const Text('Esqueci minha senha'),
+                    ),
                     TextButton(
                       onPressed: () => Navigator.pushReplacementNamed(context, '/'),
                       child: const Text('Voltar para reservas'),

@@ -4,15 +4,23 @@ using QuadraApp.Api.Models;
 
 namespace QuadraApp.Api.Data;
 
-/// <summary>Cria roles, um admin padrão e dados de exemplo na primeira execução.</summary>
+/// <summary>
+/// Aplica as migrações, garante as roles e cria o administrador inicial a partir de
+/// configuração (App:AdminEmail / App:AdminPassword). A senha nunca fica no código
+/// nem é registrada em log — é apenas repassada ao Identity, que a armazena com hash.
+/// Também semeia dados neutros de exemplo (quadras, produtos, modalidades) num banco vazio.
+/// </summary>
 public static class DbSeeder
 {
     public static async Task SeedAsync(IServiceProvider services)
     {
         using var scope = services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-        var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+        var sp = scope.ServiceProvider;
+        var db = sp.GetRequiredService<AppDbContext>();
+        var userManager = sp.GetRequiredService<UserManager<ApplicationUser>>();
+        var roleManager = sp.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+        var config = sp.GetRequiredService<IConfiguration>();
+        var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("DbSeeder");
 
         await db.Database.MigrateAsync();
 
@@ -22,72 +30,43 @@ public static class DbSeeder
                 await roleManager.CreateAsync(new IdentityRole<Guid>(papel));
         }
 
-        const string adminEmail = "admin@quadra.local";
-        if (await userManager.FindByEmailAsync(adminEmail) is null)
+        // ----- Administrador inicial -----
+        // Credenciais vêm da configuração (variáveis de ambiente App__AdminEmail /
+        // App__AdminPassword), nunca do código. O Identity guarda a senha com hash.
+        var adminEmail = config["App:AdminEmail"];
+        var adminSenha = config["App:AdminPassword"];
+        if (!string.IsNullOrWhiteSpace(adminEmail) && !string.IsNullOrWhiteSpace(adminSenha))
         {
-            var admin = new ApplicationUser
+            if (await userManager.FindByEmailAsync(adminEmail) is null)
             {
-                UserName = adminEmail,
-                Email = adminEmail,
-                EmailConfirmed = true,
-                NomeCompleto = "Administrador",
-            };
-            await userManager.CreateAsync(admin, "Admin@123");
-            await userManager.AddToRoleAsync(admin, Roles.Admin);
-        }
-
-        const string atendenteEmail = "atendente@quadra.local";
-        if (await userManager.FindByEmailAsync(atendenteEmail) is null)
-        {
-            var atendente = new ApplicationUser
-            {
-                UserName = atendenteEmail,
-                Email = atendenteEmail,
-                EmailConfirmed = true,
-                NomeCompleto = "Atendente Padrão",
-            };
-            await userManager.CreateAsync(atendente, "Atendente@123");
-            await userManager.AddToRoleAsync(atendente, Roles.Atendente);
-        }
-
-        const string professorEmail = "professor@quadra.local";
-        if (await userManager.FindByEmailAsync(professorEmail) is null)
-        {
-            var professor = new ApplicationUser
-            {
-                UserName = professorEmail,
-                Email = professorEmail,
-                EmailConfirmed = true,
-                NomeCompleto = "Professor Padrão",
-            };
-            await userManager.CreateAsync(professor, "Professor@123");
-            await userManager.AddToRoleAsync(professor, Roles.Professor);
-        }
-
-        // Alunos de exemplo
-        var alunosSeed = new[]
-        {
-            ("aluno1@quadra.local", "Ana Souza"),
-            ("aluno2@quadra.local", "Bruno Lima"),
-            ("aluno3@quadra.local", "Carla Dias"),
-            ("aluno4@quadra.local", "Diego Alves"),
-        };
-        foreach (var (email, nome) in alunosSeed)
-        {
-            if (await userManager.FindByEmailAsync(email) is null)
-            {
-                var aluno = new ApplicationUser
+                var admin = new ApplicationUser
                 {
-                    UserName = email,
-                    Email = email,
+                    UserName = adminEmail,
+                    Email = adminEmail,
                     EmailConfirmed = true,
-                    NomeCompleto = nome,
+                    NomeCompleto = "Administrador",
                 };
-                await userManager.CreateAsync(aluno, "Aluno@123");
-                await userManager.AddToRoleAsync(aluno, Roles.Aluno);
+                var resultado = await userManager.CreateAsync(admin, adminSenha);
+                if (resultado.Succeeded)
+                {
+                    await userManager.AddToRoleAsync(admin, Roles.Admin);
+                    logger.LogInformation("Administrador inicial criado ({Email}).", adminEmail);
+                }
+                else
+                {
+                    // Nunca logamos a senha — apenas o motivo da recusa (política/duplicidade).
+                    logger.LogError("Falha ao criar administrador inicial: {Erros}",
+                        string.Join("; ", resultado.Errors.Select(e => e.Description)));
+                }
             }
         }
+        else
+        {
+            logger.LogWarning(
+                "App:AdminEmail/App:AdminPassword não configurados — nenhum administrador foi criado.");
+        }
 
+        // ----- Dados de exemplo (não são usuários) — apenas em banco vazio -----
         if (!await db.Quadras.AnyAsync())
         {
             db.Quadras.AddRange(
@@ -105,73 +84,12 @@ public static class DbSeeder
                 new Produto { Nome = "Barra de Cereal", Categoria = "Lanche", Preco = 5m, EstoqueQuantidade = 50 });
         }
 
-        // ----- Competição -----
         if (!await db.Modalidades.AnyAsync())
         {
-            var beach = new Modalidade { Nome = "Beach Tennis" };
-            var volei = new Modalidade { Nome = "Vôlei" };
-            var futvolei = new Modalidade { Nome = "Futvôlei" };
-            db.Modalidades.AddRange(beach, volei, futvolei);
-
-            var alunos = (await userManager.GetUsersInRoleAsync(Roles.Aluno))
-                .OrderBy(a => a.NomeCompleto).ToList();
-
-            if (alunos.Count >= 4)
-            {
-                // Beach Tennis: 3 competidores individuais com pontos
-                var indiv = new List<(ApplicationUser aluno, int pts)>
-                {
-                    (alunos[0], 30),
-                    (alunos[1], 24),
-                    (alunos[2], 18),
-                };
-                foreach (var (aluno, pts) in indiv)
-                {
-                    var comp = new Competidor
-                    {
-                        Modalidade = beach,
-                        Tipo = TipoCompetidor.Individual,
-                        Nome = aluno.NomeCompleto,
-                        Membros = { new CompetidorMembro { AlunoId = aluno.Id, AlunoNome = aluno.NomeCompleto } },
-                    };
-                    comp.Lancamentos.Add(new LancamentoPonto
-                    {
-                        ModalidadeId = beach.Id,
-                        Pontos = pts,
-                        Motivo = "Etapa de abertura",
-                    });
-                    db.Competidores.Add(comp);
-                }
-
-                // Vôlei: 2 equipes com pontos
-                var equipeA = new Competidor
-                {
-                    Modalidade = volei,
-                    Tipo = TipoCompetidor.Equipe,
-                    Nome = "Time Fênix",
-                    Membros =
-                    {
-                        new CompetidorMembro { AlunoId = alunos[0].Id, AlunoNome = alunos[0].NomeCompleto },
-                        new CompetidorMembro { AlunoId = alunos[1].Id, AlunoNome = alunos[1].NomeCompleto },
-                    },
-                };
-                equipeA.Lancamentos.Add(new LancamentoPonto { ModalidadeId = volei.Id, Pontos = 21, Motivo = "Torneio interno" });
-
-                var equipeB = new Competidor
-                {
-                    Modalidade = volei,
-                    Tipo = TipoCompetidor.Equipe,
-                    Nome = "Time Trovão",
-                    Membros =
-                    {
-                        new CompetidorMembro { AlunoId = alunos[2].Id, AlunoNome = alunos[2].NomeCompleto },
-                        new CompetidorMembro { AlunoId = alunos[3].Id, AlunoNome = alunos[3].NomeCompleto },
-                    },
-                };
-                equipeB.Lancamentos.Add(new LancamentoPonto { ModalidadeId = volei.Id, Pontos = 15, Motivo = "Torneio interno" });
-
-                db.Competidores.AddRange(equipeA, equipeB);
-            }
+            db.Modalidades.AddRange(
+                new Modalidade { Nome = "Beach Tennis" },
+                new Modalidade { Nome = "Vôlei" },
+                new Modalidade { Nome = "Futvôlei" });
         }
 
         await db.SaveChangesAsync();
