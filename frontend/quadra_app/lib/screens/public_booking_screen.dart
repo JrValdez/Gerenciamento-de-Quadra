@@ -25,6 +25,15 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
   bool _carregandoSlots = false;
   String? _erro;
 
+  /// Quantos blocos de 30 min livres e consecutivos existem a partir de [start].
+  int _blocosLivres(int start) {
+    var n = 0;
+    for (var k = start; k < _slots.length && _slots[k].disponivel; k++) {
+      n++;
+    }
+    return n;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -52,7 +61,10 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
     if (_quadra == null) return;
     setState(() => _carregandoSlots = true);
     try {
-      final s = await api.disponibilidade(_quadra!.id, DateTime(_dia.year, _dia.month, _dia.day));
+      // Slots de 30 min para permitir reservas de 1h, 1h30, 2h... (faixas consecutivas).
+      final s = await api.disponibilidade(
+          _quadra!.id, DateTime(_dia.year, _dia.month, _dia.day),
+          slotMinutos: 30);
       setState(() {
         _slots = s;
         _carregandoSlots = false;
@@ -65,16 +77,23 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
     }
   }
 
-  Future<void> _reservar(Slot slot) async {
+  /// Toque num horário de início: abre o modal de reserva já com as durações que
+  /// cabem a partir dali (limitadas pelo próximo horário ocupado e pelo fechamento).
+  Future<void> _onTapSlot(int i) async {
+    if (!_slots[i].disponivel) return;
+    final maxMin = _blocosLivres(i) * 30;
+    final duracoes = [for (var d = 30; d <= maxMin; d += 30) d];
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => _ReservaDialog(quadra: _quadra!, slot: slot, api: api),
+      builder: (_) => _ReservaDialog(
+          quadra: _quadra!, inicio: _slots[i].inicio, duracoes: duracoes, api: api),
     );
     if (ok == true) {
       _carregarSlots();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Reserva solicitada! Confirmaremos em breve.'),
+          const SnackBar(
+              content: Text('Reserva solicitada! Confirmaremos em breve.'),
               backgroundColor: Color(0xFF1B7A3D)),
         );
       }
@@ -170,6 +189,10 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                         const SizedBox(height: 24),
                         Text('Horários de ${dataFmt.format(_dia)}',
                             style: Theme.of(context).textTheme.titleMedium),
+                        const SizedBox(height: 4),
+                        Text(
+                            'Toque no horário de início e escolha a duração (1h, 1h30, 2h...).',
+                            style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
                         const SizedBox(height: 12),
                         if (_carregandoSlots)
                           const Padding(
@@ -181,7 +204,9 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                           Wrap(
                             spacing: 10,
                             runSpacing: 10,
-                            children: _slots.map(_slotChip).toList(),
+                            children: [
+                              for (var i = 0; i < _slots.length; i++) _slotChip(i),
+                            ],
                           ),
                         const SizedBox(height: 40),
                       ],
@@ -191,8 +216,9 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
     );
   }
 
-  Widget _slotChip(Slot s) {
-    final label = '${horaFmt.format(s.inicio)} - ${horaFmt.format(s.fim)}';
+  Widget _slotChip(int i) {
+    final s = _slots[i];
+    final label = horaFmt.format(s.inicio);
     if (!s.disponivel) {
       return Chip(
         label: Text(label),
@@ -202,12 +228,19 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
     }
     return ActionChip(
       label: Text(label),
-      avatar: const Icon(Icons.check_circle, color: Color(0xFF1B7A3D), size: 18),
       backgroundColor: const Color(0xFFE6F4EA),
       side: const BorderSide(color: Color(0xFF1B7A3D)),
-      onPressed: () => _reservar(s),
+      onPressed: () => _onTapSlot(i),
     );
   }
+}
+
+String _fmtDuracao(int min) {
+  final h = min ~/ 60;
+  final m = min % 60;
+  if (h == 0) return '${m}min';
+  if (m == 0) return '${h}h';
+  return '${h}h${m.toString().padLeft(2, '0')}';
 }
 
 class _Hero extends StatelessWidget {
@@ -272,9 +305,11 @@ class _Hero extends StatelessWidget {
 
 class _ReservaDialog extends StatefulWidget {
   final Quadra quadra;
-  final Slot slot;
+  final DateTime inicio;
+  final List<int> duracoes; // durações possíveis (min), em passos de 30
   final ApiClient api;
-  const _ReservaDialog({required this.quadra, required this.slot, required this.api});
+  const _ReservaDialog(
+      {required this.quadra, required this.inicio, required this.duracoes, required this.api});
 
   @override
   State<_ReservaDialog> createState() => _ReservaDialogState();
@@ -286,15 +321,24 @@ class _ReservaDialogState extends State<_ReservaDialog> {
   final _telefone = TextEditingController();
   final _email = TextEditingController();
   final _cupom = TextEditingController();
+  late int _duracaoMin;
   bool _enviando = false;
   bool _validandoCupom = false;
   Cupom? _cupomAplicado;
   String? _cupomErro;
   String? _erro;
 
-  /// Preço da reserva (o slot cobre exatamente 1 hora).
-  double get _bruto =>
-      widget.quadra.precoHora * widget.slot.fim.difference(widget.slot.inicio).inMinutes / 60;
+  @override
+  void initState() {
+    super.initState();
+    // Pré-seleciona 1h se couber; senão, a maior duração disponível.
+    _duracaoMin = widget.duracoes.contains(60) ? 60 : widget.duracoes.last;
+  }
+
+  DateTime get _fim => widget.inicio.add(Duration(minutes: _duracaoMin));
+
+  /// Preço da reserva, proporcional à duração escolhida.
+  double get _bruto => widget.quadra.precoHora * _duracaoMin / 60;
 
   double get _desconto {
     final c = _cupomAplicado;
@@ -357,8 +401,8 @@ class _ReservaDialogState extends State<_ReservaDialog> {
     try {
       await widget.api.agendarPublico({
         'quadraId': widget.quadra.id,
-        'inicio': widget.slot.inicio.toUtc().toIso8601String(),
-        'fim': widget.slot.fim.toUtc().toIso8601String(),
+        'inicio': widget.inicio.toUtc().toIso8601String(),
+        'fim': _fim.toUtc().toIso8601String(),
         'nomeCliente': _nome.text.trim(),
         'telefoneCliente': _telefone.text.trim(),
         'emailCliente': _email.text.trim(),
@@ -439,13 +483,36 @@ class _ReservaDialogState extends State<_ReservaDialog> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        '${widget.quadra.nome}\n${dataFmt.format(widget.slot.inicio)}  '
-                        '${horaFmt.format(widget.slot.inicio)}-${horaFmt.format(widget.slot.fim)}\n'
-                        '${moeda.format(widget.quadra.precoHora)}',
+                        '${widget.quadra.nome}\n${dataFmt.format(widget.inicio)}  '
+                        '${horaFmt.format(widget.inicio)}-${horaFmt.format(_fim)}  •  ${_fmtDuracao(_duracaoMin)}\n'
+                        '${moeda.format(widget.quadra.precoHora)}/h',
                       ),
                     ),
                   ],
                 ),
+              ),
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Quanto tempo?',
+                    style: Theme.of(context).textTheme.labelLarge),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: widget.duracoes.map((d) {
+                  final sel = d == _duracaoMin;
+                  return ChoiceChip(
+                    label: Text(_fmtDuracao(d)),
+                    selected: sel,
+                    onSelected: (_) => setState(() => _duracaoMin = d),
+                    selectedColor: const Color(0xFF1B7A3D),
+                    labelStyle: TextStyle(
+                        color: sel ? Colors.white : null,
+                        fontWeight: sel ? FontWeight.w600 : null),
+                  );
+                }).toList(),
               ),
               const SizedBox(height: 16),
               TextFormField(

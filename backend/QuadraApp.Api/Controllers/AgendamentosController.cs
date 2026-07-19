@@ -128,8 +128,13 @@ public class AgendamentosController : ControllerBase
     [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<DisponibilidadeSlot>>> Disponibilidade(
         [FromQuery] Guid quadraId,
-        [FromQuery] DateTime dia)
+        [FromQuery] DateTime dia,
+        [FromQuery] int slotMinutos = 60)
     {
+        // Passo dos horários exibidos: 30 ou 60 min (a reserva em si pode ter qualquer
+        // duração combinando slots consecutivos). Qualquer outro valor cai em 60.
+        var passo = slotMinutos == 30 ? 30 : 60;
+
         var quadra = await _db.Quadras.AsNoTracking().FirstOrDefaultAsync(q => q.Id == quadraId);
         if (quadra is null) return NotFound(new { erro = "Quadra não encontrada." });
 
@@ -150,9 +155,9 @@ public class AgendamentosController : ControllerBase
 
         var agoraUtc = DateTime.UtcNow;
         var slots = new List<DisponibilidadeSlot>();
-        for (var h = inicioDia; h < fimDia; h = h.AddHours(1))
+        for (var h = inicioDia; h < fimDia; h = h.AddMinutes(passo))
         {
-            var slotFim = h.AddHours(1);
+            var slotFim = h.AddMinutes(passo);
             var ocupado = reservas.Any(r => h < r.Fim && r.Inicio < slotFim)
                 || bloqueios.Any(b => h < b.Fim && b.Inicio < slotFim)
                 || slotFim <= agoraUtc;

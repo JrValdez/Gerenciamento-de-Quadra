@@ -117,10 +117,11 @@ class ApiClient {
   Future<Agendamento> agendarPublico(Map<String, dynamic> body) async =>
       Agendamento.fromJson(await _post('/agendamentos/publico', body));
 
-  Future<List<Slot>> disponibilidade(String quadraId, DateTime dia) async {
+  Future<List<Slot>> disponibilidade(String quadraId, DateTime dia, {int slotMinutos = 60}) async {
     final data = await _get('/agendamentos/disponibilidade', {
       'quadraId': quadraId,
       'dia': dia.toIso8601String(),
+      'slotMinutos': slotMinutos,
     });
     return (data as List).map((e) => Slot.fromJson(e)).toList();
   }
