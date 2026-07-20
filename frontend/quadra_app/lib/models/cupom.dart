@@ -1,4 +1,6 @@
 // Cupons de desconto.
+import 'enum_wire.dart';
+
 const tipoDescontoLabels = ['Percentual', 'Valor fixo'];
 
 class Cupom {
@@ -26,7 +28,7 @@ class Cupom {
         id: j['id'],
         codigo: j['codigo'] ?? '',
         descricao: j['descricao'],
-        tipo: j['tipo'] ?? 0,
+        tipo: enumIndex(j['tipo'], tipoDescontoNames),
         valor: (j['valor'] as num).toDouble(),
         validoAte: DateTime.parse(j['validoAte']).toLocal(),
         ativo: j['ativo'] ?? true,

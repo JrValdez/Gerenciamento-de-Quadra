@@ -1,4 +1,6 @@
 // Competição: modalidades, competidores, classificação e lançamentos de pontos.
+import 'enum_wire.dart';
+
 const tipoCompetidorLabels = ['Individual', 'Equipe'];
 
 class Modalidade {
@@ -72,7 +74,7 @@ class Competidor {
   factory Competidor.fromJson(Map<String, dynamic> j) => Competidor(
         id: j['id'],
         modalidadeId: j['modalidadeId'],
-        tipo: j['tipo'] ?? 0,
+        tipo: enumIndex(j['tipo'], tipoCompetidorNames),
         nome: j['nome'] ?? '',
         ativo: j['ativo'] ?? true,
         membros: (j['membros'] as List?)?.map((e) => Membro.fromJson(e)).toList() ?? [],
@@ -100,7 +102,7 @@ class ClassificacaoItem {
         posicao: j['posicao'] ?? 0,
         competidorId: j['competidorId'],
         nome: j['nome'] ?? '',
-        tipo: j['tipo'] ?? 0,
+        tipo: enumIndex(j['tipo'], tipoCompetidorNames),
         totalPontos: j['totalPontos'] ?? 0,
         qtdLancamentos: j['qtdLancamentos'] ?? 0,
         membros: (j['membros'] as List?)?.map((e) => Membro.fromJson(e)).toList() ?? [],

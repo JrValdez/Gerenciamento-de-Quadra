@@ -1,3 +1,5 @@
+import 'enum_wire.dart';
+
 const statusAgendamentoLabels = ['Pendente', 'Confirmado', 'Concluído', 'Cancelado'];
 
 class Agendamento {
@@ -44,7 +46,7 @@ class Agendamento {
         nomeCliente: j['nomeCliente'] ?? '',
         telefoneCliente: j['telefoneCliente'] ?? '',
         emailCliente: j['emailCliente'] ?? '',
-        status: j['status'] ?? 0,
+        status: enumIndex(j['status'], statusAgendamentoNames),
         valorTotal: (j['valorTotal'] as num).toDouble(),
         valorDesconto: (j['valorDesconto'] as num?)?.toDouble() ?? 0,
         cupomCodigo: j['cupomCodigo'],

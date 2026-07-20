@@ -1,6 +1,7 @@
 using System.Net;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpLogging;
@@ -202,7 +203,12 @@ builder.Services.AddHttpLogging(o =>
 });
 
 // ----- MVC / Swagger -----
-builder.Services.AddControllers();
+// Enums trafegam como string (ex.: "Confirmado" em vez de 1): contrato legível e
+// resistente a reordenação. Na leitura o conversor aceita tanto o nome quanto o
+// inteiro, então clientes que ainda enviam número continuam funcionando.
+builder.Services.AddControllers()
+    .AddJsonOptions(o =>
+        o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 // Respostas de validação (400) no mesmo formato { erro } que os controllers usam,
 // para o cliente exibir a mensagem em vez de um "Erro 400" genérico.

@@ -1,3 +1,5 @@
+import 'enum_wire.dart';
+
 class Caixa {
   final String id;
   final DateTime abertoEm;
@@ -33,7 +35,7 @@ class Caixa {
         valorFechamentoInformado: j['valorFechamentoInformado'] != null
             ? (j['valorFechamentoInformado'] as num).toDouble()
             : null,
-        status: j['status'] ?? 0,
+        status: enumIndex(j['status'], statusCaixaNames),
         observacoes: j['observacoes'],
         totalEntradas: (j['totalEntradas'] as num).toDouble(),
         totalSaidas: (j['totalSaidas'] as num).toDouble(),
@@ -66,11 +68,11 @@ class Movimentacao {
 
   factory Movimentacao.fromJson(Map<String, dynamic> j) => Movimentacao(
         id: j['id'],
-        tipo: j['tipo'] ?? 0,
+        tipo: enumIndex(j['tipo'], tipoMovimentacaoNames),
         categoria: j['categoria'] ?? '',
         valor: (j['valor'] as num).toDouble(),
         descricao: j['descricao'] ?? '',
-        formaPagamento: j['formaPagamento'] ?? 0,
+        formaPagamento: enumIndex(j['formaPagamento'], formaPagamentoNames),
         criadoEm: DateTime.parse(j['criadoEm']).toLocal(),
       );
 }
