@@ -29,7 +29,7 @@ class _CaixaScreenState extends State<CaixaScreen> {
       _caixa = await api.caixaAtual();
       _movs = _caixa != null ? await api.movimentacoes(_caixa!.id) : [];
     } catch (e) {
-      _msg('Erro: $e');
+      _msg(mensagemErro(e));
     }
     if (mounted) setState(() => _carregando = false);
   }
@@ -45,7 +45,7 @@ class _CaixaScreenState extends State<CaixaScreen> {
       await api.abrirCaixa(v);
       _carregar();
     } catch (e) {
-      _msg('Erro: $e');
+      _msg(mensagemErro(e));
     }
   }
 
@@ -58,7 +58,7 @@ class _CaixaScreenState extends State<CaixaScreen> {
       _msg('Caixa fechado. Diferença: ${moeda.format(dif)}');
       _carregar();
     } catch (e) {
-      _msg('Erro: $e');
+      _msg(mensagemErro(e));
     }
   }
 
@@ -72,7 +72,7 @@ class _CaixaScreenState extends State<CaixaScreen> {
       await api.lancarMovimentacao(r);
       _carregar();
     } catch (e) {
-      _msg('Erro: $e');
+      _msg(mensagemErro(e));
     }
   }
 

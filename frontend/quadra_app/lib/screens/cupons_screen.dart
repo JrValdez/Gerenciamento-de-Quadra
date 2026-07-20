@@ -28,7 +28,7 @@ class _CuponsScreenState extends State<CuponsScreen> {
     try {
       _itens = await api.cupons(incluirInativos: true);
     } catch (e) {
-      _msg('Erro: $e');
+      _msg(mensagemErro(e));
     }
     if (mounted) setState(() => _carregando = false);
   }
@@ -149,7 +149,7 @@ class _CuponsScreenState extends State<CuponsScreen> {
               await api.excluirCupom(c.id);
               _carregar();
             } catch (e) {
-              _msg('Erro: $e');
+              _msg(mensagemErro(e));
             }
           },
         ),

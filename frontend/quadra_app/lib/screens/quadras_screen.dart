@@ -56,7 +56,7 @@ class _QuadrasScreenState extends State<QuadrasScreen> {
         await api.excluirQuadra(q.id);
         _ctrl.reload();
       } catch (e) {
-        _msg('Erro: $e');
+        _msg(mensagemErro(e));
       }
     }
   }
@@ -220,7 +220,7 @@ class _QuadraDialogState extends State<_QuadraDialog> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Erro: $e')));
+        ).showSnackBar(SnackBar(content: Text(mensagemErro(e))));
       }
     }
   }

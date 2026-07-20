@@ -11,6 +11,13 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
+/// Mensagem amigável para exibir ao usuário a partir de um erro capturado.
+/// Se for um [ApiException] (erro de negócio já traduzido pelo backend), usa a
+/// mensagem dele; caso contrário (falha de rede, erro inesperado) devolve um
+/// texto genérico — nunca o `toString()` técnico da exceção.
+String mensagemErro(Object e, [String fallback = 'Algo deu errado. Tente novamente.']) =>
+    e is ApiException ? e.message : fallback;
+
 /// Cliente central da API. Guarda o token JWT em memória.
 class ApiClient {
   String? _token;

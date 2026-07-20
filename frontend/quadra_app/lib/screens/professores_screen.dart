@@ -28,7 +28,7 @@ class _ProfessoresScreenState extends State<ProfessoresScreen> {
     try {
       _itens = await api.professores();
     } catch (e) {
-      _msg('Erro ao carregar: $e');
+      _msg(mensagemErro(e));
     }
     if (mounted) setState(() => _carregando = false);
   }
@@ -48,7 +48,7 @@ class _ProfessoresScreenState extends State<ProfessoresScreen> {
       _msg('Preço de aula atualizado.');
       _carregar();
     } catch (e) {
-      _msg('Erro: $e');
+      _msg(mensagemErro(e));
     }
   }
 

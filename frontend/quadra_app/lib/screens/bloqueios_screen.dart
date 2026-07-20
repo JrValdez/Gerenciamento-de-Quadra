@@ -28,7 +28,7 @@ class _BloqueiosScreenState extends State<BloqueiosScreen> {
       _quadras = await api.quadras(incluirInativas: true);
       _itens = await api.bloqueios();
     } catch (e) {
-      _msg('Erro: $e');
+      _msg(mensagemErro(e));
     }
     if (mounted) setState(() => _carregando = false);
   }
@@ -38,7 +38,7 @@ class _BloqueiosScreenState extends State<BloqueiosScreen> {
       _itens = await api.bloqueios();
       if (mounted) setState(() {});
     } catch (e) {
-      _msg('Erro: $e');
+      _msg(mensagemErro(e));
     }
   }
 
@@ -122,7 +122,7 @@ class _BloqueiosScreenState extends State<BloqueiosScreen> {
               await api.excluirBloqueio(b.id);
               _recarregar();
             } catch (e) {
-              _msg('Erro: $e');
+              _msg(mensagemErro(e));
             }
           },
         ),

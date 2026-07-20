@@ -41,7 +41,7 @@ class _ClassificacaoViewState extends State<ClassificacaoView> {
       if (_modalidade != null) _carregarRanking();
     } catch (e) {
       setState(() {
-        _erro = '$e';
+        _erro = mensagemErro(e);
         _carregandoMod = false;
       });
     }

@@ -72,7 +72,7 @@ class _ModalidadesTabState extends State<_ModalidadesTab> {
     try {
       _itens = await api.modalidades(incluirInativas: true);
     } catch (e) {
-      _msg('Erro: $e');
+      _msg(mensagemErro(e));
     }
     if (mounted) setState(() => _carregando = false);
   }
@@ -89,7 +89,7 @@ class _ModalidadesTabState extends State<_ModalidadesTab> {
       _nova.clear();
       _carregar();
     } catch (e) {
-      _msg('Erro: $e');
+      _msg(mensagemErro(e));
     }
   }
 
@@ -136,7 +136,7 @@ class _ModalidadesTabState extends State<_ModalidadesTab> {
                                         await api.atualizarModalidade(m.id, m.nome, v);
                                         _carregar();
                                       } catch (e) {
-                                        _msg('Erro: $e');
+                                        _msg(mensagemErro(e));
                                       }
                                     },
                                   ),
@@ -147,7 +147,7 @@ class _ModalidadesTabState extends State<_ModalidadesTab> {
                                         await api.excluirModalidade(m.id);
                                         _carregar();
                                       } catch (e) {
-                                        _msg('Erro: $e');
+                                        _msg(mensagemErro(e));
                                       }
                                     },
                                   ),
@@ -189,7 +189,7 @@ class _CompetidoresTabState extends State<_CompetidoresTab> {
       _modalidade = _modalidades.isNotEmpty ? _modalidades.first : null;
       if (_modalidade != null) await _carregarCompetidores();
     } catch (e) {
-      _msg('Erro: $e');
+      _msg(mensagemErro(e));
     }
     if (mounted) setState(() => _carregando = false);
   }
@@ -297,7 +297,7 @@ class _CompetidoresTabState extends State<_CompetidoresTab> {
                                     await api.excluirCompetidor(c.id);
                                     _carregarCompetidores();
                                   } catch (e) {
-                                    _msg('Erro: $e');
+                                    _msg(mensagemErro(e));
                                   }
                                 },
                               ),
@@ -345,7 +345,7 @@ class _CompetidorDialogState extends State<_CompetidorDialog> {
     try {
       _alunos = await widget.api.alunos();
     } catch (e) {
-      _erro = '$e';
+      _erro = mensagemErro(e);
     }
     if (mounted) setState(() => _carregando = false);
   }
@@ -500,7 +500,7 @@ class _PontosTabState extends State<_PontosTab> {
       _modalidade = _modalidades.isNotEmpty ? _modalidades.first : null;
       if (_modalidade != null) await _carregarDados();
     } catch (e) {
-      _msg('Erro: $e');
+      _msg(mensagemErro(e));
     }
     if (mounted) setState(() => _carregando = false);
   }
@@ -530,7 +530,7 @@ class _PontosTabState extends State<_PontosTab> {
       await _carregarDados();
       _msg('Pontos lançados!');
     } catch (e) {
-      _msg('Erro: $e');
+      _msg(mensagemErro(e));
     }
     if (mounted) setState(() => _enviando = false);
   }

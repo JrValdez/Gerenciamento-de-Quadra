@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../api_client.dart';
+
 /// Controla um [AsyncView] de fora — ex.: recarregar depois de criar/editar algo
 /// num diálogo disparado por um FloatingActionButton, que fica fora do corpo.
 class AsyncViewController {
@@ -98,7 +100,10 @@ class _AsyncViewState<T> extends State<AsyncView<T>> {
     if (_erro != null && _dados == null) {
       final msg =
           widget.mensagemErro?.call(_erro!) ??
-          'Não foi possível carregar. Verifique a conexão e tente novamente.';
+          mensagemErro(
+            _erro!,
+            'Não foi possível carregar. Verifique a conexão e tente novamente.',
+          );
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),

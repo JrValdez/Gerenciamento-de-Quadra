@@ -35,7 +35,7 @@ class _AgendamentosScreenState extends State<AgendamentosScreen> {
       });
     } catch (e) {
       setState(() => _carregando = false);
-      _msg('Erro ao carregar: $e');
+      _msg(mensagemErro(e));
     }
   }
 
@@ -48,7 +48,7 @@ class _AgendamentosScreenState extends State<AgendamentosScreen> {
       await api.alterarStatusAgendamento(a.id, status);
       _carregar();
     } catch (e) {
-      _msg('Erro: $e');
+      _msg(mensagemErro(e));
     }
   }
 

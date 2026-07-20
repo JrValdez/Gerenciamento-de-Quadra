@@ -155,7 +155,7 @@ class _ProdutosScreenState extends State<ProdutosScreen> {
               await api.excluirProduto(p.id);
               _ctrl.reload();
             } catch (e) {
-              _msg('Erro: $e');
+              _msg(mensagemErro(e));
             }
           },
           icon: const Icon(Icons.delete_outline),
@@ -249,7 +249,7 @@ class _ProdutoDialogState extends State<_ProdutoDialog> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Erro: $e')));
+        ).showSnackBar(SnackBar(content: Text(mensagemErro(e))));
       }
     }
   }

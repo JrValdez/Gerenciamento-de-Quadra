@@ -47,7 +47,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
     try {
       _itens = await api.usuarios();
     } catch (e) {
-      _msg('Erro: $e');
+      _msg(mensagemErro(e));
     }
     if (mounted) setState(() => _carregando = false);
   }
@@ -73,7 +73,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
       await api.definirAtivo(u.id, !u.ativo);
       _carregar();
     } catch (e) {
-      _msg('Erro: $e');
+      _msg(mensagemErro(e));
     }
   }
 
@@ -100,7 +100,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
         _msg('Usuário excluído.');
         _carregar();
       } catch (e) {
-        _msg('Erro: $e');
+        _msg(mensagemErro(e));
       }
     }
   }
@@ -112,7 +112,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
       _msg('Classificação alterada para $papel.');
       _carregar();
     } catch (e) {
-      _msg('Erro: $e');
+      _msg(mensagemErro(e));
     }
   }
 
