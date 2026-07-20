@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using QuadraApp.Api.Data;
 using QuadraApp.Api.DTOs;
@@ -72,6 +73,7 @@ public class AgendamentosController : ControllerBase
     // ----- Público: agendar sem login -----
     [HttpPost("publico")]
     [AllowAnonymous]
+    [EnableRateLimiting("publico")]
     public async Task<ActionResult<AgendamentoDto>> AgendarPublico(AgendamentoPublicoRequest req)
     {
         if (req.Fim <= req.Inicio)

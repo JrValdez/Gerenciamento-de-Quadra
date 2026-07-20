@@ -1,9 +1,13 @@
+using System.Net;
 using System.Security.Claims;
 using System.Text;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpLogging;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -127,6 +131,53 @@ builder.Services.AddSingleton(TimeZoneInfo.FindSystemTimeZoneById(tzId));
 
 // ----- Regras de domínio (camada de aplicação) -----
 builder.Services.AddScoped<AgendamentoService>();
+builder.Services.AddScoped<VendaService>();
+builder.Services.AddScoped<CaixaService>();
+
+// ----- Reverse proxy: recuperar o IP real do cliente (X-Forwarded-For) -----
+// A stack fica atrás de nginx (host) → nginx (container web) → API, todos em rede
+// privada. Confiamos apenas em proxies de faixas privadas: o ForwardedHeaders remove
+// da direita para a esquerda os IPs privados (os saltos internos) e para no primeiro
+// IP público — o cliente real. Assim o rate limiting particiona por IP de verdade e
+// um X-Forwarded-For forjado pelo cliente (à esquerda desse ponto) é ignorado.
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    o.ForwardLimit = null;
+    o.KnownIPNetworks.Clear();
+    o.KnownProxies.Clear();
+    o.KnownIPNetworks.Add(System.Net.IPNetwork.Parse("127.0.0.0/8"));
+    o.KnownIPNetworks.Add(System.Net.IPNetwork.Parse("10.0.0.0/8"));
+    o.KnownIPNetworks.Add(System.Net.IPNetwork.Parse("172.16.0.0/12"));
+    o.KnownIPNetworks.Add(System.Net.IPNetwork.Parse("192.168.0.0/16"));
+    o.KnownIPNetworks.Add(new System.Net.IPNetwork(IPAddress.IPv6Loopback, 128));
+});
+
+// ----- Rate limiting dos endpoints públicos -----
+// Freia flood de reservas falsas e spam de e-mail de recuperação / brute force de token.
+// Particiona por IP do cliente (obtido acima). Resposta 429 no mesmo formato { erro }.
+const string RlPublico = "publico";
+const string RlAuthSensivel = "auth-sensivel";
+builder.Services.AddRateLimiter(opt =>
+{
+    opt.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    opt.OnRejected = async (ctx, token) =>
+    {
+        ctx.HttpContext.Response.ContentType = "application/json";
+        await ctx.HttpContext.Response.WriteAsJsonAsync(
+            new { erro = "Muitas requisições. Aguarde um instante e tente novamente." }, token);
+    };
+
+    // Reserva pública sem login: até 10 tentativas por minuto, por IP.
+    opt.AddPolicy(RlPublico, ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "desconhecido",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
+
+    // Ações sensíveis (recuperação/redefinição de senha): 5 por 5 minutos, por IP.
+    opt.AddPolicy(RlAuthSensivel, ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "desconhecido",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromMinutes(5) }));
+});
 
 // ----- E-mail (SMTP para redefinição de senha) -----
 builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Email:Smtp"));
@@ -186,6 +237,10 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
+// Primeiro na pipeline: reescreve o IP/esquema a partir dos cabeçalhos do reverse proxy,
+// para que log de acesso e rate limiting enxerguem o cliente real (não o proxy interno).
+app.UseForwardedHeaders();
+
 // Converte qualquer exceção não tratada num JSON consistente (sem stack trace em prod).
 app.UseExceptionHandler();
 
@@ -199,6 +254,7 @@ if (!app.Environment.IsProduction())
 }
 
 app.UseCors(CorsPolicy);
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
@@ -206,7 +262,16 @@ app.MapControllers();
 // Liveness/readiness para orquestração (Docker healthcheck, reverse proxy). Anônimo.
 app.MapHealthChecks("/health");
 
-// ----- Migração + seed automáticos -----
-await DbSeeder.SeedAsync(app.Services);
+// ----- Migração + seed -----
+// Por padrão roda em desenvolvimento (DX de subir com um comando); em produção é opt-in
+// (App__AutoMigrate=true) para evitar corrida entre instâncias e migração não intencional
+// no boot. Com o flag desligado, aplique as migrações num passo dedicado do deploy.
+var autoMigrate = builder.Configuration.GetValue<bool?>("App:AutoMigrate")
+    ?? builder.Environment.IsDevelopment();
+if (autoMigrate)
+    await DbSeeder.SeedAsync(app.Services);
+else
+    app.Logger.LogInformation(
+        "App:AutoMigrate desligado — migração/seed não executados no startup. Rode as migrações manualmente (ex.: 'dotnet ef database update' ou passo de deploy).");
 
 app.Run();

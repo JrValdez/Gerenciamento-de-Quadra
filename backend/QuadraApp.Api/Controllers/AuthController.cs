@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using QuadraApp.Api.Data;
 using QuadraApp.Api.DTOs;
@@ -68,6 +69,7 @@ public class AuthController : ControllerBase
     /// <summary>Envia um link de redefinição de senha por e-mail. Público.</summary>
     [HttpPost("forgot-password")]
     [AllowAnonymous]
+    [EnableRateLimiting("auth-sensivel")]
     public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest req)
     {
         var user = await _userManager.FindByEmailAsync(req.Email);
@@ -107,6 +109,7 @@ public class AuthController : ControllerBase
     /// <summary>Redefine a senha usando o token recebido por e-mail. Público.</summary>
     [HttpPost("reset-password")]
     [AllowAnonymous]
+    [EnableRateLimiting("auth-sensivel")]
     public async Task<IActionResult> ResetPassword(ResetPasswordRequest req)
     {
         var user = await _userManager.FindByEmailAsync(req.Email);

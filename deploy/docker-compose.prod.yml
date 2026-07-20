@@ -24,6 +24,10 @@ services:
     restart: unless-stopped
     environment:
       TZ: America/Sao_Paulo
+      # Stack de instância única: aplica migração + seed no boot. Se um dia escalar a
+      # API para mais de uma réplica, mude para "false" e rode as migrações num passo
+      # separado do deploy (evita corrida entre instâncias subindo ao mesmo tempo).
+      App__AutoMigrate: "true"
       ConnectionStrings__Default: "Host=db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
       Jwt__Key: ${JWT_KEY}
       Jwt__Issuer: QuadraApp
