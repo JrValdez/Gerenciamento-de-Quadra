@@ -5,6 +5,7 @@ import '../api_client.dart';
 import '../auth_provider.dart';
 import '../models.dart';
 import '../theme.dart';
+import '../widgets/async_view.dart';
 
 class ProdutosScreen extends StatefulWidget {
   const ProdutosScreen({super.key});
@@ -14,27 +15,12 @@ class ProdutosScreen extends StatefulWidget {
 
 class _ProdutosScreenState extends State<ProdutosScreen> {
   late final ApiClient api = context.read<ApiClient>();
-  List<Produto> _itens = [];
-  bool _carregando = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _carregar();
-  }
-
-  Future<void> _carregar() async {
-    setState(() => _carregando = true);
-    try {
-      _itens = await api.produtos(incluirInativos: true);
-    } catch (e) {
-      _msg('Erro: $e');
-    }
-    if (mounted) setState(() => _carregando = false);
-  }
+  final _ctrl = AsyncViewController();
 
   void _msg(String m) {
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+    }
   }
 
   Future<void> _editar([Produto? p]) async {
@@ -42,52 +28,59 @@ class _ProdutosScreenState extends State<ProdutosScreen> {
       context: context,
       builder: (_) => _ProdutoDialog(api: api, produto: p),
     );
-    if (salvo == true) _carregar();
+    if (salvo == true) _ctrl.reload();
   }
 
-  Future<void> _vender() async {
+  Future<void> _vender(List<Produto> itens) async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => _VendaDialog(api: api, produtos: _itens.where((p) => p.ativo).toList()),
+      builder: (_) => _VendaDialog(
+        api: api,
+        produtos: itens.where((p) => p.ativo).toList(),
+      ),
     );
     if (ok == true) {
       _msg('Venda registrada e lançada no caixa!');
-      _carregar();
+      _ctrl.reload();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final isAdmin = context.read<AuthProvider>().usuario?.isAdmin ?? false;
-    return Scaffold(
-      floatingActionButton: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          FloatingActionButton.extended(
-            heroTag: 'venda',
-            onPressed: _vender,
-            backgroundColor: Colors.indigo,
-            icon: const Icon(Icons.shopping_cart_checkout),
-            label: const Text('Venda rápida'),
-          ),
-          const SizedBox(height: 12),
-          FloatingActionButton.extended(
-            heroTag: 'novo',
-            onPressed: () => _editar(),
-            icon: const Icon(Icons.add),
-            label: const Text('Novo produto'),
-          ),
-        ],
-      ),
-      body: _carregando
-          ? const Center(child: CircularProgressIndicator())
-          : ListView.separated(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 150),
-              itemCount: _itens.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 8),
-              itemBuilder: (_, i) => _card(_itens[i], isAdmin),
+    return AsyncView<List<Produto>>(
+      controlador: _ctrl,
+      carregar: () => api.produtos(incluirInativos: true),
+      mensagemErro: (_) =>
+          'Não foi possível carregar os produtos. Tente novamente.',
+      builder: (context, itens, recarregar) => Scaffold(
+        floatingActionButton: Column(
+          mainAxisAlignment: MainAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            FloatingActionButton.extended(
+              heroTag: 'venda',
+              onPressed: () => _vender(itens),
+              backgroundColor: Colors.indigo,
+              icon: const Icon(Icons.shopping_cart_checkout),
+              label: const Text('Venda rápida'),
             ),
+            const SizedBox(height: 12),
+            FloatingActionButton.extended(
+              heroTag: 'novo',
+              onPressed: () => _editar(),
+              icon: const Icon(Icons.add),
+              label: const Text('Novo produto'),
+            ),
+          ],
+        ),
+        body: ListView.separated(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 150),
+          itemCount: itens.length,
+          separatorBuilder: (_, _) => const SizedBox(height: 8),
+          itemBuilder: (_, i) => _card(itens[i], isAdmin),
+        ),
+      ),
     );
   }
 
@@ -96,9 +89,11 @@ class _ProdutosScreenState extends State<ProdutosScreen> {
     final info = Row(
       children: [
         CircleAvatar(
-          backgroundColor: const Color(0xFFE6F4EA),
-          child: Text(p.categoria.isNotEmpty ? p.categoria[0] : '?',
-              style: const TextStyle(color: Color(0xFF1B7A3D))),
+          backgroundColor: Brand.greenTint,
+          child: Text(
+            p.categoria.isNotEmpty ? p.categoria[0] : '?',
+            style: const TextStyle(color: Brand.green),
+          ),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -109,15 +104,20 @@ class _ProdutosScreenState extends State<ProdutosScreen> {
               Row(
                 children: [
                   Flexible(
-                    child: Text(p.nome,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis),
+                    child: Text(
+                      p.nome,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                   if (!p.ativo)
                     const Padding(
                       padding: EdgeInsets.only(left: 8),
-                      child: Chip(label: Text('Inativo'), visualDensity: VisualDensity.compact),
+                      child: Chip(
+                        label: Text('Inativo'),
+                        visualDensity: VisualDensity.compact,
+                      ),
                     ),
                 ],
               ),
@@ -125,7 +125,10 @@ class _ProdutosScreenState extends State<ProdutosScreen> {
               Text(
                 '${p.categoria} • Estoque: ${p.estoqueQuantidade}'
                 '${semEstoque ? '  (sem estoque)' : ''}',
-                style: TextStyle(color: semEstoque ? Colors.red : Colors.grey.shade600, fontSize: 13),
+                style: TextStyle(
+                  color: semEstoque ? Colors.red : Colors.grey.shade600,
+                  fontSize: 13,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -135,15 +138,22 @@ class _ProdutosScreenState extends State<ProdutosScreen> {
       ],
     );
     final acoes = <Widget>[
-      Text(moeda.format(p.preco), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-      IconButton(onPressed: () => _editar(p), icon: const Icon(Icons.edit), tooltip: 'Editar'),
+      Text(
+        moeda.format(p.preco),
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
+      IconButton(
+        onPressed: () => _editar(p),
+        icon: const Icon(Icons.edit),
+        tooltip: 'Editar',
+      ),
       if (isAdmin)
         IconButton(
           tooltip: 'Excluir',
           onPressed: () async {
             try {
               await api.excluirProduto(p.id);
-              _carregar();
+              _ctrl.reload();
             } catch (e) {
               _msg('Erro: $e');
             }
@@ -169,7 +179,11 @@ class _ProdutosScreenState extends State<ProdutosScreen> {
               );
             }
             return Row(
-              children: [Expanded(child: info), const SizedBox(width: 8), Flexible(child: acoesWrap)],
+              children: [
+                Expanded(child: info),
+                const SizedBox(width: 8),
+                Flexible(child: acoesWrap),
+              ],
             );
           },
         ),
@@ -189,9 +203,15 @@ class _ProdutoDialog extends StatefulWidget {
 class _ProdutoDialogState extends State<_ProdutoDialog> {
   final _form = GlobalKey<FormState>();
   late final _nome = TextEditingController(text: widget.produto?.nome);
-  late final _cat = TextEditingController(text: widget.produto?.categoria ?? 'Bebida');
-  late final _preco = TextEditingController(text: widget.produto?.preco.toStringAsFixed(2));
-  late final _estoque = TextEditingController(text: '${widget.produto?.estoqueQuantidade ?? 0}');
+  late final _cat = TextEditingController(
+    text: widget.produto?.categoria ?? 'Bebida',
+  );
+  late final _preco = TextEditingController(
+    text: widget.produto?.preco.toStringAsFixed(2),
+  );
+  late final _estoque = TextEditingController(
+    text: '${widget.produto?.estoqueQuantidade ?? 0}',
+  );
   late final _desc = TextEditingController(text: widget.produto?.descricao);
   late bool _ativo = widget.produto?.ativo ?? true;
   bool _salvando = false;
@@ -226,7 +246,11 @@ class _ProdutoDialogState extends State<_ProdutoDialog> {
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       setState(() => _salvando = false);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro: $e')));
+      }
     }
   }
 
@@ -245,36 +269,46 @@ class _ProdutoDialogState extends State<_ProdutoDialog> {
               TextFormField(
                 controller: _nome,
                 decoration: const InputDecoration(labelText: 'Nome'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Obrigatório' : null,
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Obrigatório' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _cat,
                 decoration: const InputDecoration(labelText: 'Categoria'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Obrigatório' : null,
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Obrigatório' : null,
               ),
               const SizedBox(height: 12),
-              Row(children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _preco,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Preço', prefixText: 'R\$ '),
-                    validator: (v) => (double.tryParse((v ?? '').replaceAll(',', '.')) == null)
-                        ? 'Inválido'
-                        : null,
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _preco,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Preço',
+                        prefixText: 'R\$ ',
+                      ),
+                      validator: (v) =>
+                          (double.tryParse((v ?? '').replaceAll(',', '.')) ==
+                              null)
+                          ? 'Inválido'
+                          : null,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    controller: _estoque,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Estoque'),
-                    validator: (v) => (int.tryParse(v ?? '') == null) ? 'Inválido' : null,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _estoque,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Estoque'),
+                      validator: (v) =>
+                          (int.tryParse(v ?? '') == null) ? 'Inválido' : null,
+                    ),
                   ),
-                ),
-              ]),
+                ],
+              ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _desc,
@@ -291,11 +325,18 @@ class _ProdutoDialogState extends State<_ProdutoDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancelar'),
+        ),
         FilledButton(
           onPressed: _salvando ? null : _salvar,
           child: _salvando
-              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
               : const Text('Salvar'),
         ),
       ],
@@ -338,7 +379,9 @@ class _VendaDialogState extends State<_VendaDialog> {
     });
     try {
       await widget.api.registrarVenda({
-        'itens': itens.map((e) => {'produtoId': e.key, 'quantidade': e.value}).toList(),
+        'itens': itens
+            .map((e) => {'produtoId': e.key, 'quantidade': e.value})
+            .toList(),
         'formaPagamento': _formaPagamento,
       });
       if (mounted) Navigator.pop(context, true);
@@ -371,12 +414,16 @@ class _VendaDialogState extends State<_VendaDialog> {
                   return ListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(p.nome),
-                    subtitle: Text('${moeda.format(p.preco)} • estoque ${p.estoqueQuantidade}'),
+                    subtitle: Text(
+                      '${moeda.format(p.preco)} • estoque ${p.estoqueQuantidade}',
+                    ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
-                          onPressed: q > 0 ? () => setState(() => _carrinho[p.id] = q - 1) : null,
+                          onPressed: q > 0
+                              ? () => setState(() => _carrinho[p.id] = q - 1)
+                              : null,
                           icon: const Icon(Icons.remove_circle_outline),
                         ),
                         Text('$q'),
@@ -401,13 +448,21 @@ class _VendaDialogState extends State<_VendaDialog> {
                   value: _formaPagamento,
                   items: [
                     for (var i = 0; i < formaPagamentoLabels.length; i++)
-                      DropdownMenuItem(value: i, child: Text(formaPagamentoLabels[i])),
+                      DropdownMenuItem(
+                        value: i,
+                        child: Text(formaPagamentoLabels[i]),
+                      ),
                   ],
                   onChanged: (v) => setState(() => _formaPagamento = v ?? 0),
                 ),
                 const Spacer(),
-                Text('Total: ${moeda.format(_total)}',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(
+                  'Total: ${moeda.format(_total)}',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ],
             ),
             if (_erro != null)
@@ -419,11 +474,18 @@ class _VendaDialogState extends State<_VendaDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancelar'),
+        ),
         FilledButton(
           onPressed: _enviando ? null : _finalizar,
           child: _enviando
-              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
               : const Text('Finalizar venda'),
         ),
       ],

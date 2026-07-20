@@ -5,6 +5,7 @@ import '../api_client.dart';
 import '../auth_provider.dart';
 import '../models.dart';
 import '../theme.dart';
+import '../widgets/async_view.dart';
 
 class QuadrasScreen extends StatefulWidget {
   const QuadrasScreen({super.key});
@@ -14,27 +15,12 @@ class QuadrasScreen extends StatefulWidget {
 
 class _QuadrasScreenState extends State<QuadrasScreen> {
   late final ApiClient api = context.read<ApiClient>();
-  List<Quadra> _itens = [];
-  bool _carregando = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _carregar();
-  }
-
-  Future<void> _carregar() async {
-    setState(() => _carregando = true);
-    try {
-      _itens = await api.quadras(incluirInativas: true);
-    } catch (e) {
-      _msg('Erro: $e');
-    }
-    if (mounted) setState(() => _carregando = false);
-  }
+  final _ctrl = AsyncViewController();
 
   void _msg(String m) {
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+    }
   }
 
   Future<void> _editar([Quadra? q]) async {
@@ -42,7 +28,7 @@ class _QuadrasScreenState extends State<QuadrasScreen> {
       context: context,
       builder: (_) => _QuadraDialog(api: api, quadra: q),
     );
-    if (salvo == true) _carregar();
+    if (salvo == true) _ctrl.reload();
   }
 
   Future<void> _excluir(Quadra q) async {
@@ -50,17 +36,25 @@ class _QuadrasScreenState extends State<QuadrasScreen> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Excluir quadra'),
-        content: Text('Remover "${q.nome}"? Se houver agendamentos, ela será apenas inativada.'),
+        content: Text(
+          'Remover "${q.nome}"? Se houver agendamentos, ela será apenas inativada.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Excluir')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Excluir'),
+          ),
         ],
       ),
     );
     if (ok == true) {
       try {
         await api.excluirQuadra(q.id);
-        _carregar();
+        _ctrl.reload();
       } catch (e) {
         _msg('Erro: $e');
       }
@@ -76,16 +70,20 @@ class _QuadrasScreenState extends State<QuadrasScreen> {
         icon: const Icon(Icons.add),
         label: const Text('Nova quadra'),
       ),
-      body: _carregando
-          ? const Center(child: CircularProgressIndicator())
-          : GridView.extent(
-              padding: const EdgeInsets.all(16),
-              maxCrossAxisExtent: 440,
-              childAspectRatio: 1.8,
-              mainAxisSpacing: 16,
-              crossAxisSpacing: 16,
-              children: _itens.map((q) => _card(q, isAdmin)).toList(),
-            ),
+      body: AsyncView<List<Quadra>>(
+        controlador: _ctrl,
+        carregar: () => api.quadras(incluirInativas: true),
+        mensagemErro: (_) =>
+            'Não foi possível carregar as quadras. Tente novamente.',
+        builder: (context, itens, recarregar) => GridView.extent(
+          padding: const EdgeInsets.all(16),
+          maxCrossAxisExtent: 440,
+          childAspectRatio: 1.8,
+          mainAxisSpacing: 16,
+          crossAxisSpacing: 16,
+          children: itens.map((q) => _card(q, isAdmin)).toList(),
+        ),
+      ),
     );
   }
 
@@ -98,11 +96,19 @@ class _QuadrasScreenState extends State<QuadrasScreen> {
           children: [
             Row(
               children: [
-                const Icon(Icons.stadium, color: Color(0xFF1B7A3D)),
+                const Icon(Icons.stadium, color: Brand.green),
                 const SizedBox(width: 8),
-                Expanded(child: Text(q.nome, style: const TextStyle(fontWeight: FontWeight.bold))),
+                Expanded(
+                  child: Text(
+                    q.nome,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
                 if (!q.ativa)
-                  const Chip(label: Text('Inativa'), visualDensity: VisualDensity.compact),
+                  const Chip(
+                    label: Text('Inativa'),
+                    visualDensity: VisualDensity.compact,
+                  ),
               ],
             ),
             const SizedBox(height: 6),
@@ -121,20 +127,31 @@ class _QuadrasScreenState extends State<QuadrasScreen> {
               children: [
                 Expanded(
                   child: Text.rich(
-                    TextSpan(children: [
-                      TextSpan(
-                        text: moeda.format(q.precoHora),
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      const TextSpan(text: ' / hora'),
-                    ]),
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: moeda.format(q.precoHora),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const TextSpan(text: ' / hora'),
+                      ],
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                IconButton(onPressed: () => _editar(q), icon: const Icon(Icons.edit)),
+                IconButton(
+                  onPressed: () => _editar(q),
+                  icon: const Icon(Icons.edit),
+                ),
                 if (isAdmin)
-                  IconButton(onPressed: () => _excluir(q), icon: const Icon(Icons.delete_outline)),
+                  IconButton(
+                    onPressed: () => _excluir(q),
+                    icon: const Icon(Icons.delete_outline),
+                  ),
               ],
             ),
           ],
@@ -155,7 +172,9 @@ class _QuadraDialog extends StatefulWidget {
 class _QuadraDialogState extends State<_QuadraDialog> {
   final _form = GlobalKey<FormState>();
   late final _nome = TextEditingController(text: widget.quadra?.nome);
-  late final _preco = TextEditingController(text: widget.quadra?.precoHora.toStringAsFixed(2));
+  late final _preco = TextEditingController(
+    text: widget.quadra?.precoHora.toStringAsFixed(2),
+  );
   late final _obs = TextEditingController(text: widget.quadra?.observacoes);
   late bool _ativa = widget.quadra?.ativa ?? true;
   late int _abertura = widget.quadra?.horaAbertura ?? 8;
@@ -173,8 +192,11 @@ class _QuadraDialogState extends State<_QuadraDialog> {
   Future<void> _salvar() async {
     if (!_form.currentState!.validate()) return;
     if (_fechamento <= _abertura) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Fechamento deve ser depois da abertura.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Fechamento deve ser depois da abertura.'),
+        ),
+      );
       return;
     }
     setState(() => _salvando = true);
@@ -195,7 +217,11 @@ class _QuadraDialogState extends State<_QuadraDialog> {
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       setState(() => _salvando = false);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro: $e')));
+      }
     }
   }
 
@@ -214,15 +240,21 @@ class _QuadraDialogState extends State<_QuadraDialog> {
               TextFormField(
                 controller: _nome,
                 decoration: const InputDecoration(labelText: 'Nome'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Obrigatório' : null,
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Obrigatório' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _preco,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Preço por hora', prefixText: 'R\$ '),
+                decoration: const InputDecoration(
+                  labelText: 'Preço por hora',
+                  prefixText: 'R\$ ',
+                ),
                 validator: (v) =>
-                    (double.tryParse((v ?? '').replaceAll(',', '.')) == null) ? 'Valor inválido' : null,
+                    (double.tryParse((v ?? '').replaceAll(',', '.')) == null)
+                    ? 'Valor inválido'
+                    : null,
               ),
               const SizedBox(height: 12),
               Row(
@@ -233,7 +265,10 @@ class _QuadraDialogState extends State<_QuadraDialog> {
                       decoration: const InputDecoration(labelText: 'Abre às'),
                       items: [
                         for (var h = 0; h <= 23; h++)
-                          DropdownMenuItem(value: h, child: Text('${h.toString().padLeft(2, '0')}:00')),
+                          DropdownMenuItem(
+                            value: h,
+                            child: Text('${h.toString().padLeft(2, '0')}:00'),
+                          ),
                       ],
                       onChanged: (v) => setState(() => _abertura = v ?? 8),
                     ),
@@ -245,7 +280,10 @@ class _QuadraDialogState extends State<_QuadraDialog> {
                       decoration: const InputDecoration(labelText: 'Fecha às'),
                       items: [
                         for (var h = 1; h <= 24; h++)
-                          DropdownMenuItem(value: h, child: Text('${h.toString().padLeft(2, '0')}:00')),
+                          DropdownMenuItem(
+                            value: h,
+                            child: Text('${h.toString().padLeft(2, '0')}:00'),
+                          ),
                       ],
                       onChanged: (v) => setState(() => _fechamento = v ?? 22),
                     ),
@@ -268,11 +306,18 @@ class _QuadraDialogState extends State<_QuadraDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancelar'),
+        ),
         FilledButton(
           onPressed: _salvando ? null : _salvar,
           child: _salvando
-              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
               : const Text('Salvar'),
         ),
       ],
