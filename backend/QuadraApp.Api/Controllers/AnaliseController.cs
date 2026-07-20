@@ -19,7 +19,7 @@ public class AnaliseController : ControllerBase
     private const int DiasGrafico = 14;
 
     [HttpGet("caixa")]
-    public async Task<ActionResult<AnaliseCaixaDto>> Caixa()
+    public async Task<ActionResult<AnaliseCaixaDto>> Caixa(CancellationToken ct)
     {
         var hojeLocal = DateTime.Now.Date;
 
@@ -36,7 +36,7 @@ public class AnaliseController : ControllerBase
 
         var movs = await _db.MovimentacoesCaixa.AsNoTracking()
             .Where(m => m.CriadoEm >= janelaUtc)
-            .ToListAsync();
+            .ToListAsync(ct);
 
         var inicioDiaUtc = hojeLocal.ToUniversalTime();
         var inicioSemanaUtc = inicioSemanaLocal.ToUniversalTime();
@@ -89,7 +89,7 @@ public class AnaliseController : ControllerBase
 
         // Saldo do caixa aberto (se houver).
         var caixa = await _db.Caixas.Include(c => c.Movimentacoes)
-            .FirstOrDefaultAsync(c => c.Status == StatusCaixa.Aberto);
+            .FirstOrDefaultAsync(c => c.Status == StatusCaixa.Aberto, ct);
         decimal? saldo = null;
         if (caixa is not null)
         {

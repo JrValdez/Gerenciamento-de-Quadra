@@ -20,27 +20,28 @@ public class QuadrasController : ControllerBase
     /// <summary>Lista quadras. Público vê apenas ativas; interno vê todas com ?incluirInativas=true.</summary>
     [HttpGet]
     [AllowAnonymous]
-    public async Task<ActionResult<IEnumerable<QuadraDto>>> Listar([FromQuery] bool incluirInativas = false)
+    public async Task<ActionResult<IEnumerable<QuadraDto>>> Listar(
+        [FromQuery] bool incluirInativas = false, CancellationToken ct = default)
     {
         var query = _db.Quadras.AsNoTracking().AsQueryable();
         if (!incluirInativas)
             query = query.Where(q => q.Ativa);
 
-        var itens = await query.OrderBy(q => q.Nome).Select(q => Map(q)).ToListAsync();
+        var itens = await query.OrderBy(q => q.Nome).Select(q => Map(q)).ToListAsync(ct);
         return Ok(itens);
     }
 
     [HttpGet("{id:guid}")]
     [AllowAnonymous]
-    public async Task<ActionResult<QuadraDto>> Obter(Guid id)
+    public async Task<ActionResult<QuadraDto>> Obter(Guid id, CancellationToken ct)
     {
-        var q = await _db.Quadras.FindAsync(id);
+        var q = await _db.Quadras.FindAsync([id], ct);
         return q is null ? NotFound() : Ok(Map(q));
     }
 
     [HttpPost]
     [Authorize(Roles = $"{Roles.Admin},{Roles.Atendente}")]
-    public async Task<ActionResult<QuadraDto>> Criar(QuadraCreateRequest req)
+    public async Task<ActionResult<QuadraDto>> Criar(QuadraCreateRequest req, CancellationToken ct)
     {
         if (req.HoraFechamento <= req.HoraAbertura)
             return BadRequest(new { erro = "Hora de fechamento deve ser maior que a de abertura." });
@@ -55,18 +56,18 @@ public class QuadrasController : ControllerBase
             Observacoes = req.Observacoes,
         };
         _db.Quadras.Add(q);
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(ct);
         return CreatedAtAction(nameof(Obter), new { id = q.Id }, Map(q));
     }
 
     [HttpPut("{id:guid}")]
     [Authorize(Roles = $"{Roles.Admin},{Roles.Atendente}")]
-    public async Task<ActionResult<QuadraDto>> Atualizar(Guid id, QuadraUpdateRequest req)
+    public async Task<ActionResult<QuadraDto>> Atualizar(Guid id, QuadraUpdateRequest req, CancellationToken ct)
     {
         if (req.HoraFechamento <= req.HoraAbertura)
             return BadRequest(new { erro = "Hora de fechamento deve ser maior que a de abertura." });
 
-        var q = await _db.Quadras.FindAsync(id);
+        var q = await _db.Quadras.FindAsync([id], ct);
         if (q is null) return NotFound();
 
         q.Nome = req.Nome;
@@ -75,28 +76,28 @@ public class QuadrasController : ControllerBase
         q.HoraFechamento = req.HoraFechamento;
         q.Ativa = req.Ativa;
         q.Observacoes = req.Observacoes;
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(ct);
         return Ok(Map(q));
     }
 
     [HttpDelete("{id:guid}")]
     [Authorize(Roles = Roles.Admin)]
-    public async Task<IActionResult> Excluir(Guid id)
+    public async Task<IActionResult> Excluir(Guid id, CancellationToken ct)
     {
-        var q = await _db.Quadras.FindAsync(id);
+        var q = await _db.Quadras.FindAsync([id], ct);
         if (q is null) return NotFound();
 
         // Se já houver agendamentos, apenas inativa (preserva histórico).
-        var temAgendamentos = await _db.Agendamentos.AnyAsync(a => a.QuadraId == id);
+        var temAgendamentos = await _db.Agendamentos.AnyAsync(a => a.QuadraId == id, ct);
         if (temAgendamentos)
         {
             q.Ativa = false;
-            await _db.SaveChangesAsync();
+            await _db.SaveChangesAsync(ct);
             return Ok(new { mensagem = "Quadra possui agendamentos; foi inativada em vez de excluída." });
         }
 
         _db.Quadras.Remove(q);
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(ct);
         return NoContent();
     }
 }

@@ -18,7 +18,7 @@ public class DashboardController : ControllerBase
     private const int LimiteBaixoEstoque = 5;
 
     [HttpGet("resumo")]
-    public async Task<ActionResult<DashboardResumo>> Resumo()
+    public async Task<ActionResult<DashboardResumo>> Resumo(CancellationToken ct)
     {
         // "Hoje" no fuso do servidor, convertido para UTC (dados são armazenados em UTC).
         var hojeLocal = DateTime.Now.Date;
@@ -28,17 +28,17 @@ public class DashboardController : ControllerBase
 
         var doDia = await _db.Agendamentos.AsNoTracking()
             .Where(a => a.Inicio >= inicioUtc && a.Inicio < fimUtc && a.Status != StatusAgendamento.Cancelado)
-            .ToListAsync();
+            .ToListAsync(ct);
 
         var agendamentosHoje = doDia.Count;
         var faturamentoHoje = doDia
             .Where(a => a.Status == StatusAgendamento.Confirmado || a.Status == StatusAgendamento.Concluido)
             .Sum(a => a.ValorTotal);
 
-        var pendentes = await _db.Agendamentos.CountAsync(a => a.Status == StatusAgendamento.Pendente);
+        var pendentes = await _db.Agendamentos.CountAsync(a => a.Status == StatusAgendamento.Pendente, ct);
 
         var caixa = await _db.Caixas.Include(c => c.Movimentacoes)
-            .FirstOrDefaultAsync(c => c.Status == StatusCaixa.Aberto);
+            .FirstOrDefaultAsync(c => c.Status == StatusCaixa.Aberto, ct);
         decimal? saldo = null;
         if (caixa is not null)
         {
@@ -48,7 +48,7 @@ public class DashboardController : ControllerBase
         }
 
         var baixoEstoque = await _db.Produtos
-            .CountAsync(p => p.Ativo && p.EstoqueQuantidade <= LimiteBaixoEstoque);
+            .CountAsync(p => p.Ativo && p.EstoqueQuantidade <= LimiteBaixoEstoque, ct);
 
         var proximos = await _db.Agendamentos.AsNoTracking().Include(a => a.Quadra)
             .Where(a => a.Inicio >= agoraUtc && a.Status != StatusAgendamento.Cancelado)
@@ -57,7 +57,7 @@ public class DashboardController : ControllerBase
             .Select(a => new AgendamentoDto(a.Id, a.QuadraId, a.Quadra!.Nome, a.Inicio, a.Fim,
                 a.NomeCliente, a.TelefoneCliente, a.EmailCliente, a.Status, a.ValorTotal, a.Observacoes, a.CriadoEm,
                 a.ValorDesconto, a.CupomCodigo))
-            .ToListAsync();
+            .ToListAsync(ct);
 
         return Ok(new DashboardResumo(
             agendamentosHoje, pendentes, faturamentoHoje,

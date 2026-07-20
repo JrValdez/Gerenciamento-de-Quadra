@@ -26,23 +26,24 @@ public class BloqueiosController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<BloqueioDto>>> Listar(
         [FromQuery] Guid? quadraId,
-        [FromQuery] bool incluirPassados = false)
+        [FromQuery] bool incluirPassados = false,
+        CancellationToken ct = default)
     {
         var query = _db.Bloqueios.AsNoTracking().Include(b => b.Quadra).AsQueryable();
         if (quadraId is not null) query = query.Where(b => b.QuadraId == quadraId);
         if (!incluirPassados) query = query.Where(b => b.Fim >= DateTime.UtcNow);
 
-        var itens = await query.OrderBy(b => b.Inicio).Select(b => Map(b)).ToListAsync();
+        var itens = await query.OrderBy(b => b.Inicio).Select(b => Map(b)).ToListAsync(ct);
         return Ok(itens);
     }
 
     [HttpPost]
-    public async Task<ActionResult<BloqueioDto>> Criar(BloqueioCreateRequest req)
+    public async Task<ActionResult<BloqueioDto>> Criar(BloqueioCreateRequest req, CancellationToken ct)
     {
         if (req.Fim <= req.Inicio)
             return BadRequest(new { erro = "Fim deve ser maior que o início." });
 
-        var quadra = await _db.Quadras.FindAsync(req.QuadraId);
+        var quadra = await _db.Quadras.FindAsync([req.QuadraId], ct);
         if (quadra is null) return BadRequest(new { erro = "Quadra inexistente." });
 
         var bloqueio = new Bloqueio
@@ -54,18 +55,18 @@ public class BloqueiosController : ControllerBase
             CriadoPorUserId = UsuarioAtual(),
         };
         _db.Bloqueios.Add(bloqueio);
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(ct);
         bloqueio.Quadra = quadra;
         return Ok(Map(bloqueio));
     }
 
     [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> Excluir(Guid id)
+    public async Task<IActionResult> Excluir(Guid id, CancellationToken ct)
     {
-        var b = await _db.Bloqueios.FindAsync(id);
+        var b = await _db.Bloqueios.FindAsync([id], ct);
         if (b is null) return NotFound();
         _db.Bloqueios.Remove(b);
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(ct);
         return NoContent();
     }
 }

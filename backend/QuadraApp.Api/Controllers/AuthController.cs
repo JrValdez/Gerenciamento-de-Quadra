@@ -173,9 +173,9 @@ public class AuthController : ControllerBase
     /// <summary>Lista todos os usuários do sistema. Admin/Atendente.</summary>
     [HttpGet("usuarios")]
     [Authorize(Roles = $"{Roles.Admin},{Roles.Atendente}")]
-    public async Task<ActionResult<IEnumerable<UsuarioDto>>> Usuarios()
+    public async Task<ActionResult<IEnumerable<UsuarioDto>>> Usuarios(CancellationToken ct)
     {
-        var users = await _userManager.Users.OrderBy(u => u.NomeCompleto).ToListAsync();
+        var users = await _userManager.Users.OrderBy(u => u.NomeCompleto).ToListAsync(ct);
 
         // Papéis de todos os usuários em UMA consulta (evita o N+1 de um GetRolesAsync
         // por usuário): junta UserRoles com Roles e agrupa por usuário.
@@ -183,7 +183,7 @@ public class AuthController : ControllerBase
             from ur in _db.UserRoles
             join r in _db.Roles on ur.RoleId equals r.Id
             select new { ur.UserId, r.Name })
-            .ToListAsync();
+            .ToListAsync(ct);
         var mapa = papeisPorUsuario
             .GroupBy(x => x.UserId)
             .ToDictionary(g => g.Key, g => g.Select(x => x.Name!).ToList());
@@ -280,7 +280,7 @@ public class AuthController : ControllerBase
     /// <summary>Exclui um usuário. Admin/Atendente. Não é possível excluir a si mesmo.</summary>
     [HttpDelete("usuarios/{id:guid}")]
     [Authorize(Roles = $"{Roles.Admin},{Roles.Atendente}")]
-    public async Task<IActionResult> ExcluirUsuario(Guid id)
+    public async Task<IActionResult> ExcluirUsuario(Guid id, CancellationToken ct)
     {
         var eu = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (eu == id.ToString())
@@ -295,20 +295,20 @@ public class AuthController : ControllerBase
 
         // Remove vínculos na competição (FK restrita); competidores que ficarem
         // sem integrantes (ex.: o individual do próprio aluno) também são removidos.
-        var membros = await _db.CompetidorMembros.Where(m => m.AlunoId == id).ToListAsync();
+        var membros = await _db.CompetidorMembros.Where(m => m.AlunoId == id).ToListAsync(ct);
         if (membros.Count > 0)
         {
             var competidorIds = membros.Select(m => m.CompetidorId).Distinct().ToList();
             _db.CompetidorMembros.RemoveRange(membros);
-            await _db.SaveChangesAsync();
+            await _db.SaveChangesAsync(ct);
 
             var vazios = await _db.Competidores
                 .Where(c => competidorIds.Contains(c.Id) && !c.Membros.Any())
-                .ToListAsync();
+                .ToListAsync(ct);
             if (vazios.Count > 0)
             {
                 _db.Competidores.RemoveRange(vazios);
-                await _db.SaveChangesAsync();
+                await _db.SaveChangesAsync(ct);
             }
         }
 

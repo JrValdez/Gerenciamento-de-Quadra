@@ -62,26 +62,26 @@ public class CaixaController : ControllerBase
     /// <summary>Histórico de caixas (fechados e aberto).</summary>
     [HttpGet]
     public async Task<ActionResult<IEnumerable<CaixaDto>>> Listar(
-        [FromQuery] int? page, [FromQuery] int? pageSize)
+        [FromQuery] int? page, [FromQuery] int? pageSize, CancellationToken ct = default)
     {
         var pg = Paginacao.De(page, pageSize, padrao: 90, max: 365);
-        Response.Headers["X-Total-Count"] = (await _db.Caixas.CountAsync()).ToString();
+        Response.Headers["X-Total-Count"] = (await _db.Caixas.CountAsync(ct)).ToString();
 
         var caixas = await _db.Caixas.Include(c => c.Movimentacoes)
             .OrderByDescending(c => c.AbertoEm)
-            .Skip(pg.Skip).Take(pg.PageSize).ToListAsync();
+            .Skip(pg.Skip).Take(pg.PageSize).ToListAsync(ct);
         return Ok(caixas.Select(Map));
     }
 
     [HttpGet("{id:guid}/movimentacoes")]
-    public async Task<ActionResult<IEnumerable<MovimentacaoDto>>> Movimentacoes(Guid id)
+    public async Task<ActionResult<IEnumerable<MovimentacaoDto>>> Movimentacoes(Guid id, CancellationToken ct)
     {
         var itens = await _db.MovimentacoesCaixa.AsNoTracking()
             .Where(m => m.CaixaId == id)
             .OrderByDescending(m => m.CriadoEm)
             .Select(m => new MovimentacaoDto(m.Id, m.Tipo, m.Categoria, m.Valor,
                 m.Descricao, m.FormaPagamento, m.CriadoEm, m.AgendamentoId, m.VendaId))
-            .ToListAsync();
+            .ToListAsync(ct);
         return Ok(itens);
     }
 

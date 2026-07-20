@@ -44,21 +44,22 @@ public class CompeticaoController : ControllerBase
 
     // ----- Competidores -----
     [HttpGet("competidores")]
-    public async Task<ActionResult<IEnumerable<CompetidorDto>>> Competidores([FromQuery] Guid modalidadeId)
+    public async Task<ActionResult<IEnumerable<CompetidorDto>>> Competidores(
+        [FromQuery] Guid modalidadeId, CancellationToken ct)
     {
         var itens = await _db.Competidores.AsNoTracking()
             .Include(c => c.Membros)
             .Where(c => c.ModalidadeId == modalidadeId)
             .OrderBy(c => c.Nome)
-            .ToListAsync();
+            .ToListAsync(ct);
         return Ok(itens.Select(MapCompetidor));
     }
 
     [HttpPost("competidores")]
     [Authorize(Roles = Roles.GestoresCompeticao)]
-    public async Task<ActionResult<CompetidorDto>> CriarCompetidor(CompetidorCreateRequest req)
+    public async Task<ActionResult<CompetidorDto>> CriarCompetidor(CompetidorCreateRequest req, CancellationToken ct)
     {
-        var modalidade = await _db.Modalidades.FindAsync(req.ModalidadeId);
+        var modalidade = await _db.Modalidades.FindAsync([req.ModalidadeId], ct);
         if (modalidade is null) return BadRequest(new { erro = "Modalidade inexistente." });
 
         if (req.Tipo == TipoCompetidor.Individual && req.AlunosIds.Count != 1)
@@ -79,16 +80,17 @@ public class CompeticaoController : ControllerBase
             Membros = membros,
         };
         _db.Competidores.Add(competidor);
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(ct);
         return Ok(MapCompetidor(competidor));
     }
 
     [HttpPut("competidores/{id:guid}")]
     [Authorize(Roles = Roles.GestoresCompeticao)]
-    public async Task<ActionResult<CompetidorDto>> AtualizarCompetidor(Guid id, CompetidorUpdateRequest req)
+    public async Task<ActionResult<CompetidorDto>> AtualizarCompetidor(
+        Guid id, CompetidorUpdateRequest req, CancellationToken ct)
     {
         var competidor = await _db.Competidores.Include(c => c.Membros)
-            .FirstOrDefaultAsync(c => c.Id == id);
+            .FirstOrDefaultAsync(c => c.Id == id, ct);
         if (competidor is null) return NotFound();
 
         if (competidor.Tipo == TipoCompetidor.Individual && req.AlunosIds.Count != 1)
@@ -103,18 +105,18 @@ public class CompeticaoController : ControllerBase
         competidor.Nome = string.IsNullOrWhiteSpace(req.Nome)
             ? (competidor.Tipo == TipoCompetidor.Individual ? membros[0].AlunoNome : competidor.Nome)
             : req.Nome.Trim();
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(ct);
         return Ok(MapCompetidor(competidor));
     }
 
     [HttpDelete("competidores/{id:guid}")]
     [Authorize(Roles = Roles.GestoresCompeticao)]
-    public async Task<IActionResult> ExcluirCompetidor(Guid id)
+    public async Task<IActionResult> ExcluirCompetidor(Guid id, CancellationToken ct)
     {
-        var competidor = await _db.Competidores.FindAsync(id);
+        var competidor = await _db.Competidores.FindAsync([id], ct);
         if (competidor is null) return NotFound();
         _db.Competidores.Remove(competidor); // cascade remove membros e lançamentos
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(ct);
         return NoContent();
     }
 
@@ -137,9 +139,9 @@ public class CompeticaoController : ControllerBase
     // ----- Lançamentos de pontos -----
     [HttpPost("lancamentos")]
     [Authorize(Roles = Roles.GestoresCompeticao)]
-    public async Task<ActionResult<LancamentoDto>> LancarPontos(LancamentoRequest req)
+    public async Task<ActionResult<LancamentoDto>> LancarPontos(LancamentoRequest req, CancellationToken ct)
     {
-        var competidor = await _db.Competidores.FindAsync(req.CompetidorId);
+        var competidor = await _db.Competidores.FindAsync([req.CompetidorId], ct);
         if (competidor is null) return BadRequest(new { erro = "Competidor inexistente." });
 
         var lanc = new LancamentoPonto
@@ -151,20 +153,20 @@ public class CompeticaoController : ControllerBase
             RegistradoPorUserId = UsuarioAtual(),
         };
         _db.LancamentosPonto.Add(lanc);
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(ct);
         return Ok(new LancamentoDto(lanc.Id, competidor.Id, competidor.Nome, lanc.Pontos, lanc.Motivo, lanc.Data));
     }
 
     [HttpGet("lancamentos")]
     public async Task<ActionResult<IEnumerable<LancamentoDto>>> Lancamentos(
-        [FromQuery] Guid modalidadeId, [FromQuery] Guid? competidorId)
+        [FromQuery] Guid modalidadeId, [FromQuery] Guid? competidorId, CancellationToken ct)
     {
         var query = _db.LancamentosPonto.AsNoTracking()
             .Include(l => l.Competidor)
             .Where(l => l.ModalidadeId == modalidadeId);
         if (competidorId is not null) query = query.Where(l => l.CompetidorId == competidorId);
 
-        var itens = await query.OrderByDescending(l => l.Data).Take(200).ToListAsync();
+        var itens = await query.OrderByDescending(l => l.Data).Take(200).ToListAsync(ct);
         return Ok(itens.Select(l =>
             new LancamentoDto(l.Id, l.CompetidorId, l.Competidor!.Nome, l.Pontos, l.Motivo, l.Data)));
     }
@@ -173,14 +175,14 @@ public class CompeticaoController : ControllerBase
     [HttpGet("classificacao")]
     [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<ClassificacaoItemDto>>> Classificacao(
-        [FromQuery] Guid modalidadeId, [FromQuery] TipoCompetidor? tipo)
+        [FromQuery] Guid modalidadeId, [FromQuery] TipoCompetidor? tipo, CancellationToken ct)
     {
         // Carrega TODOS os competidores ativos da modalidade (para cruzar times x individuais).
         var todos = await _db.Competidores.AsNoTracking()
             .Include(c => c.Membros)
             .Include(c => c.Lancamentos)
             .Where(c => c.ModalidadeId == modalidadeId && c.Ativo)
-            .ToListAsync();
+            .ToListAsync(ct);
 
         // Resumo de cada time: alunos integrantes, total de pontos e qtd de lançamentos.
         var times = todos

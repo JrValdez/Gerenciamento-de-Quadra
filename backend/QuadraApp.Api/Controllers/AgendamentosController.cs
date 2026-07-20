@@ -38,6 +38,7 @@ public class AgendamentosController : ControllerBase
     /// </summary>
     private async Task EnsureClienteAsync(string? nome, string? email)
     {
+        // UserManager não expõe CancellationToken nestas operações do Identity.
         if (string.IsNullOrWhiteSpace(email) || !email.Contains('@')) return;
 
         var emailNormalizado = email.Trim();
@@ -74,24 +75,25 @@ public class AgendamentosController : ControllerBase
     [HttpPost("publico")]
     [AllowAnonymous]
     [EnableRateLimiting("publico")]
-    public async Task<ActionResult<AgendamentoDto>> AgendarPublico(AgendamentoPublicoRequest req)
+    public async Task<ActionResult<AgendamentoDto>> AgendarPublico(
+        AgendamentoPublicoRequest req, CancellationToken ct)
     {
         if (req.Fim <= req.Inicio)
             return BadRequest(new { erro = "Horário final deve ser maior que o inicial." });
         if (req.Inicio < DateTime.UtcNow.AddMinutes(-1))
             return BadRequest(new { erro = "Não é possível agendar no passado." });
 
-        var quadra = await _db.Quadras.FindAsync(req.QuadraId);
+        var quadra = await _db.Quadras.FindAsync([req.QuadraId], ct);
         if (quadra is null || !quadra.Ativa)
             return BadRequest(new { erro = "Quadra indisponível." });
 
-        if (await _svc.ExisteConflitoAsync(req.QuadraId, req.Inicio, req.Fim))
+        if (await _svc.ExisteConflitoAsync(req.QuadraId, req.Inicio, req.Fim, ct: ct))
             return Conflict(new { erro = "Já existe reserva nesse horário." });
-        if (await _svc.ExisteBloqueioAsync(req.QuadraId, req.Inicio, req.Fim))
+        if (await _svc.ExisteBloqueioAsync(req.QuadraId, req.Inicio, req.Fim, ct))
             return Conflict(new { erro = "Quadra bloqueada nesse horário." });
 
         var bruto = AgendamentoService.CalcularValor(quadra.PrecoHora, req.Inicio, req.Fim);
-        var (cupom, desconto, erroCupom) = await _svc.ResolverCupomAsync(req.CupomCodigo, bruto);
+        var (cupom, desconto, erroCupom) = await _svc.ResolverCupomAsync(req.CupomCodigo, bruto, ct);
         if (erroCupom is not null) return BadRequest(new { erro = erroCupom });
 
         var ag = new Agendamento
@@ -112,7 +114,7 @@ public class AgendamentosController : ControllerBase
         _db.Agendamentos.Add(ag);
         try
         {
-            await _db.SaveChangesAsync();
+            await _db.SaveChangesAsync(ct);
         }
         catch (DbUpdateException ex) when (PgErros.EhOverlap(ex))
         {
@@ -131,13 +133,14 @@ public class AgendamentosController : ControllerBase
     public async Task<ActionResult<IEnumerable<DisponibilidadeSlot>>> Disponibilidade(
         [FromQuery] Guid quadraId,
         [FromQuery] DateTime dia,
-        [FromQuery] int slotMinutos = 60)
+        [FromQuery] int slotMinutos = 60,
+        CancellationToken ct = default)
     {
         // Passo dos horários exibidos: 30 ou 60 min (a reserva em si pode ter qualquer
         // duração combinando slots consecutivos). Qualquer outro valor cai em 60.
         var passo = slotMinutos == 30 ? 30 : 60;
 
-        var quadra = await _db.Quadras.AsNoTracking().FirstOrDefaultAsync(q => q.Id == quadraId);
+        var quadra = await _db.Quadras.AsNoTracking().FirstOrDefaultAsync(q => q.Id == quadraId, ct);
         if (quadra is null) return NotFound(new { erro = "Quadra não encontrada." });
 
         // Horários montados no fuso do estabelecimento e convertidos para UTC — não
@@ -149,11 +152,11 @@ public class AgendamentosController : ControllerBase
             .Where(a => a.QuadraId == quadraId &&
                         a.Status != StatusAgendamento.Cancelado &&
                         a.Inicio < fimDia && a.Fim > inicioDia)
-            .ToListAsync();
+            .ToListAsync(ct);
 
         var bloqueios = await _db.Bloqueios.AsNoTracking()
             .Where(b => b.QuadraId == quadraId && b.Inicio < fimDia && b.Fim > inicioDia)
-            .ToListAsync();
+            .ToListAsync(ct);
 
         var agoraUtc = DateTime.UtcNow;
         var slots = new List<DisponibilidadeSlot>();
@@ -177,7 +180,8 @@ public class AgendamentosController : ControllerBase
         [FromQuery] Guid? quadraId,
         [FromQuery] StatusAgendamento? status,
         [FromQuery] int? page,
-        [FromQuery] int? pageSize)
+        [FromQuery] int? pageSize,
+        CancellationToken ct = default)
     {
         var query = _db.Agendamentos.AsNoTracking().Include(a => a.Quadra).AsQueryable();
         if (de is not null) query = query.Where(a => a.Inicio >= de);
@@ -186,41 +190,41 @@ public class AgendamentosController : ControllerBase
         if (status is not null) query = query.Where(a => a.Status == status);
 
         var pg = Paginacao.De(page, pageSize, padrao: 200, max: 500);
-        Response.Headers["X-Total-Count"] = (await query.CountAsync()).ToString();
+        Response.Headers["X-Total-Count"] = (await query.CountAsync(ct)).ToString();
 
         var itens = await query.OrderByDescending(a => a.Inicio)
             .Skip(pg.Skip).Take(pg.PageSize)
-            .Select(a => Map(a)).ToListAsync();
+            .Select(a => Map(a)).ToListAsync(ct);
         return Ok(itens);
     }
 
     [HttpGet("{id:guid}")]
     [Authorize(Roles = $"{Roles.Admin},{Roles.Atendente}")]
-    public async Task<ActionResult<AgendamentoDto>> Obter(Guid id)
+    public async Task<ActionResult<AgendamentoDto>> Obter(Guid id, CancellationToken ct)
     {
         var a = await _db.Agendamentos.Include(x => x.Quadra)
-            .FirstOrDefaultAsync(x => x.Id == id);
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
         return a is null ? NotFound() : Ok(Map(a));
     }
 
     // ----- Interno: criar (já confirmado) -----
     [HttpPost]
     [Authorize(Roles = $"{Roles.Admin},{Roles.Atendente}")]
-    public async Task<ActionResult<AgendamentoDto>> Criar(AgendamentoCreateRequest req)
+    public async Task<ActionResult<AgendamentoDto>> Criar(AgendamentoCreateRequest req, CancellationToken ct)
     {
         if (req.Fim <= req.Inicio)
             return BadRequest(new { erro = "Horário final deve ser maior que o inicial." });
 
-        var quadra = await _db.Quadras.FindAsync(req.QuadraId);
+        var quadra = await _db.Quadras.FindAsync([req.QuadraId], ct);
         if (quadra is null) return BadRequest(new { erro = "Quadra inexistente." });
 
-        if (await _svc.ExisteConflitoAsync(req.QuadraId, req.Inicio, req.Fim))
+        if (await _svc.ExisteConflitoAsync(req.QuadraId, req.Inicio, req.Fim, ct: ct))
             return Conflict(new { erro = "Já existe reserva nesse horário." });
-        if (await _svc.ExisteBloqueioAsync(req.QuadraId, req.Inicio, req.Fim))
+        if (await _svc.ExisteBloqueioAsync(req.QuadraId, req.Inicio, req.Fim, ct))
             return Conflict(new { erro = "Quadra bloqueada nesse horário. Remova o bloqueio para reservar." });
 
         var bruto = AgendamentoService.CalcularValor(quadra.PrecoHora, req.Inicio, req.Fim);
-        var (cupom, desconto, erroCupom) = await _svc.ResolverCupomAsync(req.CupomCodigo, bruto);
+        var (cupom, desconto, erroCupom) = await _svc.ResolverCupomAsync(req.CupomCodigo, bruto, ct);
         if (erroCupom is not null) return BadRequest(new { erro = erroCupom });
 
         var ag = new Agendamento
@@ -242,7 +246,7 @@ public class AgendamentosController : ControllerBase
         _db.Agendamentos.Add(ag);
         try
         {
-            await _db.SaveChangesAsync();
+            await _db.SaveChangesAsync(ct);
         }
         catch (DbUpdateException ex) when (PgErros.EhOverlap(ex))
         {
@@ -258,7 +262,8 @@ public class AgendamentosController : ControllerBase
     // ----- Professor: reservar quadra para dar aula -----
     [HttpPost("aula")]
     [Authorize(Roles = Roles.Professor)]
-    public async Task<ActionResult<AgendamentoDto>> ReservarAula(AgendamentoAulaRequest req)
+    public async Task<ActionResult<AgendamentoDto>> ReservarAula(
+        AgendamentoAulaRequest req, CancellationToken ct)
     {
         if (req.Fim <= req.Inicio)
             return BadRequest(new { erro = "Horário final deve ser maior que o inicial." });
@@ -271,13 +276,13 @@ public class AgendamentosController : ControllerBase
         if (professor is null || !professor.Ativo)
             return Unauthorized();
 
-        var quadra = await _db.Quadras.FindAsync(req.QuadraId);
+        var quadra = await _db.Quadras.FindAsync([req.QuadraId], ct);
         if (quadra is null || !quadra.Ativa)
             return BadRequest(new { erro = "Quadra indisponível." });
 
-        if (await _svc.ExisteConflitoAsync(req.QuadraId, req.Inicio, req.Fim))
+        if (await _svc.ExisteConflitoAsync(req.QuadraId, req.Inicio, req.Fim, ct: ct))
             return Conflict(new { erro = "Já existe reserva nesse horário." });
-        if (await _svc.ExisteBloqueioAsync(req.QuadraId, req.Inicio, req.Fim))
+        if (await _svc.ExisteBloqueioAsync(req.QuadraId, req.Inicio, req.Fim, ct))
             return Conflict(new { erro = "Quadra bloqueada nesse horário." });
 
         var valor = AgendamentoService.CalcularValor(professor.PrecoAula, req.Inicio, req.Fim);
@@ -303,7 +308,7 @@ public class AgendamentosController : ControllerBase
         _db.Agendamentos.Add(ag);
         try
         {
-            await _db.SaveChangesAsync();
+            await _db.SaveChangesAsync(ct);
         }
         catch (DbUpdateException ex) when (PgErros.EhOverlap(ex))
         {
@@ -316,14 +321,15 @@ public class AgendamentosController : ControllerBase
     // ----- Interno: alterar status -----
     [HttpPatch("{id:guid}/status")]
     [Authorize(Roles = $"{Roles.Admin},{Roles.Atendente}")]
-    public async Task<ActionResult<AgendamentoDto>> AlterarStatus(Guid id, AgendamentoStatusRequest req)
+    public async Task<ActionResult<AgendamentoDto>> AlterarStatus(
+        Guid id, AgendamentoStatusRequest req, CancellationToken ct)
     {
         var a = await _db.Agendamentos.Include(x => x.Quadra)
-            .FirstOrDefaultAsync(x => x.Id == id);
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
         if (a is null) return NotFound();
 
         a.Status = req.Status;
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(ct);
         return Ok(Map(a));
     }
 }

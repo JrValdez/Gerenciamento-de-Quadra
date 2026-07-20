@@ -32,16 +32,17 @@ public class VendasController : ControllerBase
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<VendaDto>>> Listar(
-        [FromQuery] Guid? caixaId, [FromQuery] int? page, [FromQuery] int? pageSize)
+        [FromQuery] Guid? caixaId, [FromQuery] int? page, [FromQuery] int? pageSize,
+        CancellationToken ct = default)
     {
         var query = _db.Vendas.AsNoTracking().Include(v => v.Itens).AsQueryable();
         if (caixaId is not null) query = query.Where(v => v.CaixaId == caixaId);
 
         var pg = Paginacao.De(page, pageSize, padrao: 200, max: 500);
-        Response.Headers["X-Total-Count"] = (await query.CountAsync()).ToString();
+        Response.Headers["X-Total-Count"] = (await query.CountAsync(ct)).ToString();
 
         var itens = await query.OrderByDescending(v => v.CriadoEm)
-            .Skip(pg.Skip).Take(pg.PageSize).ToListAsync();
+            .Skip(pg.Skip).Take(pg.PageSize).ToListAsync(ct);
         return Ok(itens.Select(Map));
     }
 

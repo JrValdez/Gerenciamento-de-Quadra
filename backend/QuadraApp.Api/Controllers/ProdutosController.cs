@@ -19,23 +19,24 @@ public class ProdutosController : ControllerBase
         new(p.Id, p.Nome, p.Descricao, p.Categoria, p.Preco, p.EstoqueQuantidade, p.Ativo);
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<ProdutoDto>>> Listar([FromQuery] bool incluirInativos = false)
+    public async Task<ActionResult<IEnumerable<ProdutoDto>>> Listar(
+        [FromQuery] bool incluirInativos = false, CancellationToken ct = default)
     {
         var query = _db.Produtos.AsNoTracking().AsQueryable();
         if (!incluirInativos) query = query.Where(p => p.Ativo);
-        var itens = await query.OrderBy(p => p.Nome).Select(p => Map(p)).ToListAsync();
+        var itens = await query.OrderBy(p => p.Nome).Select(p => Map(p)).ToListAsync(ct);
         return Ok(itens);
     }
 
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<ProdutoDto>> Obter(Guid id)
+    public async Task<ActionResult<ProdutoDto>> Obter(Guid id, CancellationToken ct)
     {
-        var p = await _db.Produtos.FindAsync(id);
+        var p = await _db.Produtos.FindAsync([id], ct);
         return p is null ? NotFound() : Ok(Map(p));
     }
 
     [HttpPost]
-    public async Task<ActionResult<ProdutoDto>> Criar(ProdutoCreateRequest req)
+    public async Task<ActionResult<ProdutoDto>> Criar(ProdutoCreateRequest req, CancellationToken ct)
     {
         var p = new Produto
         {
@@ -47,14 +48,14 @@ public class ProdutosController : ControllerBase
             Ativo = req.Ativo,
         };
         _db.Produtos.Add(p);
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(ct);
         return CreatedAtAction(nameof(Obter), new { id = p.Id }, Map(p));
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<ActionResult<ProdutoDto>> Atualizar(Guid id, ProdutoUpdateRequest req)
+    public async Task<ActionResult<ProdutoDto>> Atualizar(Guid id, ProdutoUpdateRequest req, CancellationToken ct)
     {
-        var p = await _db.Produtos.FindAsync(id);
+        var p = await _db.Produtos.FindAsync([id], ct);
         if (p is null) return NotFound();
 
         p.Nome = req.Nome;
@@ -63,27 +64,27 @@ public class ProdutosController : ControllerBase
         p.Preco = req.Preco;
         p.EstoqueQuantidade = req.EstoqueQuantidade;
         p.Ativo = req.Ativo;
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(ct);
         return Ok(Map(p));
     }
 
     [HttpDelete("{id:guid}")]
     [Authorize(Roles = Roles.Admin)]
-    public async Task<IActionResult> Excluir(Guid id)
+    public async Task<IActionResult> Excluir(Guid id, CancellationToken ct)
     {
-        var p = await _db.Produtos.FindAsync(id);
+        var p = await _db.Produtos.FindAsync([id], ct);
         if (p is null) return NotFound();
 
-        var vendido = await _db.VendaItens.AnyAsync(i => i.ProdutoId == id);
+        var vendido = await _db.VendaItens.AnyAsync(i => i.ProdutoId == id, ct);
         if (vendido)
         {
             p.Ativo = false;
-            await _db.SaveChangesAsync();
+            await _db.SaveChangesAsync(ct);
             return Ok(new { mensagem = "Produto já vendido; foi inativado em vez de excluído." });
         }
 
         _db.Produtos.Remove(p);
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(ct);
         return NoContent();
     }
 }

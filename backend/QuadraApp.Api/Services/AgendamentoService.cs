@@ -35,29 +35,31 @@ public class AgendamentoService
     }
 
     /// <summary>True se já existe reserva ativa sobrepondo o intervalo na mesma quadra.</summary>
-    public Task<bool> ExisteConflitoAsync(Guid quadraId, DateTime inicio, DateTime fim, Guid? ignorarId = null) =>
+    public Task<bool> ExisteConflitoAsync(Guid quadraId, DateTime inicio, DateTime fim,
+        Guid? ignorarId = null, CancellationToken ct = default) =>
         _db.Agendamentos.AnyAsync(a =>
             a.QuadraId == quadraId &&
             a.Status != StatusAgendamento.Cancelado &&
             (ignorarId == null || a.Id != ignorarId) &&
-            inicio < a.Fim && a.Inicio < fim);
+            inicio < a.Fim && a.Inicio < fim, ct);
 
     /// <summary>True se há bloqueio da quadra sobrepondo o intervalo.</summary>
-    public Task<bool> ExisteBloqueioAsync(Guid quadraId, DateTime inicio, DateTime fim) =>
+    public Task<bool> ExisteBloqueioAsync(Guid quadraId, DateTime inicio, DateTime fim,
+        CancellationToken ct = default) =>
         _db.Bloqueios.AnyAsync(b =>
-            b.QuadraId == quadraId && inicio < b.Fim && b.Inicio < fim);
+            b.QuadraId == quadraId && inicio < b.Fim && b.Inicio < fim, ct);
 
     /// <summary>
     /// Resolve e valida um cupom para um valor bruto. Retorna o cupom, o desconto a
     /// abater e uma mensagem de erro (quando o código foi informado mas é inválido).
     /// </summary>
     public async Task<(Cupom? cupom, decimal desconto, string? erro)> ResolverCupomAsync(
-        string? codigo, decimal bruto)
+        string? codigo, decimal bruto, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(codigo)) return (null, 0m, null);
 
         var cod = codigo.Trim().ToUpperInvariant();
-        var cupom = await _db.Cupons.FirstOrDefaultAsync(c => c.Codigo == cod);
+        var cupom = await _db.Cupons.FirstOrDefaultAsync(c => c.Codigo == cod, ct);
         if (cupom is null) return (null, 0m, "Cupom não encontrado.");
         if (!cupom.Ativo) return (null, 0m, "Cupom inativo.");
         if (cupom.ValidoAte < DateTime.UtcNow) return (null, 0m, "Cupom expirado.");
