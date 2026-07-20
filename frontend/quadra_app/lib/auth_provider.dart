@@ -1,10 +1,15 @@
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:web/web.dart' as web;
 import 'api_client.dart';
 import 'models.dart';
 
-/// Estado de autenticação global. Guarda usuário logado e token,
-/// persistindo o token no navegador (shared_preferences).
+/// Estado de autenticação global. Guarda usuário logado e token.
+///
+/// O token é persistido no **sessionStorage** do navegador (e não no localStorage):
+/// ele sobrevive ao refresh da aba, mas é descartado quando a aba/janela é fechada,
+/// reduzindo a janela de exposição de um token roubado. Mantemos o esquema Bearer/JWT
+/// (o CORS e o modelo de auth não mudam); a superfície de XSS do Flutter Web já é baixa
+/// (renderiza em canvas, sem injeção de HTML/DOM da aplicação).
 class AuthProvider extends ChangeNotifier {
   final ApiClient api;
   AuthProvider(this.api);
@@ -20,8 +25,7 @@ class AuthProvider extends ChangeNotifier {
 
   /// Tenta restaurar a sessão a partir do token salvo. Retorna true se válido.
   Future<bool> tryRestore() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString(_kToken);
+    final token = web.window.sessionStorage.getItem(_kToken);
     if (token == null) return false;
     api.setToken(token);
     try {
@@ -30,7 +34,7 @@ class AuthProvider extends ChangeNotifier {
       return true;
     } catch (_) {
       api.setToken(null);
-      await prefs.remove(_kToken);
+      web.window.sessionStorage.removeItem(_kToken);
       return false;
     }
   }
@@ -43,8 +47,7 @@ class AuthProvider extends ChangeNotifier {
       final token = data['token'] as String;
       api.setToken(token);
       _usuario = Usuario.fromJson(data['usuario'] as Map<String, dynamic>);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_kToken, token);
+      web.window.sessionStorage.setItem(_kToken, token);
     } finally {
       _carregando = false;
       notifyListeners();
@@ -54,8 +57,7 @@ class AuthProvider extends ChangeNotifier {
   Future<void> logout() async {
     api.setToken(null);
     _usuario = null;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_kToken);
+    web.window.sessionStorage.removeItem(_kToken);
     notifyListeners();
   }
 }

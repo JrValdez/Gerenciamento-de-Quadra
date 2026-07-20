@@ -37,7 +37,7 @@ dependencies:
   provider: ^6.1.5+1
   http: ^1.6.0
   intl: ^0.20.3
-  shared_preferences: ^2.5.5
+  web: ^1.1.0
   table_calendar: ^3.2.0
   google_fonts: ^8.2.0
 
