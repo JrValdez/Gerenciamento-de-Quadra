@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../auth_provider.dart';
 import '../theme.dart';
+import '../widgets/auth_redirect.dart';
 import 'dashboard_screen.dart';
 import 'agendamentos_screen.dart';
 import 'quadras_screen.dart';
@@ -29,12 +30,7 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
-    if (!auth.logado) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.pushReplacementNamed(context, '/login');
-      });
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
+    if (!auth.logado) return const AuthRedirect(rota: '/login');
     final usuario = auth.usuario!;
 
     final paginas = <_NavItem>[

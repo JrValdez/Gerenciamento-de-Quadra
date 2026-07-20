@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../auth_provider.dart';
 import '../theme.dart';
+import '../widgets/auth_redirect.dart';
 import 'competicao/classificacao_view.dart';
 
 /// Área do Aluno: acompanha a classificação da competição (somente leitura).
@@ -12,12 +13,7 @@ class AlunoShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
-    if (!auth.logado) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.pushReplacementNamed(context, '/login');
-      });
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
+    if (!auth.logado) return const AuthRedirect(rota: '/login');
     final usuario = auth.usuario!;
 
     return Scaffold(
