@@ -123,7 +123,7 @@ class _ModalidadesTabState extends State<_ModalidadesTab> {
                   children: _itens
                       .map((m) => Card(
                             child: ListTile(
-                              leading: const Icon(Icons.sports, color: Color(0xFF1B7A3D)),
+                              leading: const Icon(Icons.sports, color: Brand.green),
                               title: Text(m.nome),
                               subtitle: Text(m.ativa ? 'Ativa' : 'Inativa'),
                               trailing: Row(
@@ -285,7 +285,7 @@ class _CompetidoresTabState extends State<_CompetidoresTab> {
                       .map((c) => Card(
                             child: ListTile(
                               leading: Icon(c.tipo == 1 ? Icons.groups : Icons.person,
-                                  color: const Color(0xFF1B7A3D)),
+                                  color: Brand.green),
                               title: Text(c.nome),
                               subtitle: Text(
                                   '${tipoCompetidorLabels[c.tipo]}'
@@ -607,12 +607,12 @@ class _PontosTabState extends State<_PontosTab> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE6F4EA),
+                      color: Brand.greenTint,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Row(
                       children: [
-                        Icon(Icons.info_outline, size: 18, color: Color(0xFF1B7A3D)),
+                        Icon(Icons.info_outline, size: 18, color: Brand.green),
                         SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -646,11 +646,11 @@ class _PontosTabState extends State<_PontosTab> {
           ..._historico.map((l) => Card(
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: (l.pontos >= 0 ? const Color(0xFF1B7A3D) : Colors.red)
+                    backgroundColor: (l.pontos >= 0 ? Brand.green : Colors.red)
                         .withValues(alpha: 0.12),
                     child: Text('${l.pontos >= 0 ? '+' : ''}${l.pontos}',
                         style: TextStyle(
-                            color: l.pontos >= 0 ? const Color(0xFF1B7A3D) : Colors.red,
+                            color: l.pontos >= 0 ? Brand.green : Colors.red,
                             fontWeight: FontWeight.bold)),
                   ),
                   title: Text(l.competidorNome),

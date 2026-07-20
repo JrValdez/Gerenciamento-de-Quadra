@@ -17,7 +17,7 @@ class _AgendamentosScreenState extends State<AgendamentosScreen> {
   int? _filtroStatus;
   bool _carregando = true;
 
-  static const _cores = [Colors.orange, Color(0xFF1B7A3D), Colors.blueGrey, Colors.red];
+  static const _cores = [Colors.orange, Brand.green, Colors.blueGrey, Colors.red];
 
   @override
   void initState() {

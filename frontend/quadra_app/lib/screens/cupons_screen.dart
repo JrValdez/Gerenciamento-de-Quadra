@@ -94,8 +94,8 @@ class _CuponsScreenState extends State<CuponsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         CircleAvatar(
-          backgroundColor: c.valido ? const Color(0xFFE6F4EA) : const Color(0xFFFDE7E7),
-          child: Icon(Icons.local_offer, color: c.valido ? const Color(0xFF1B7A3D) : Colors.red),
+          backgroundColor: c.valido ? Brand.greenTint : const Color(0xFFFDE7E7),
+          child: Icon(Icons.local_offer, color: c.valido ? Brand.green : Colors.red),
         ),
         const SizedBox(width: 12),
         Expanded(

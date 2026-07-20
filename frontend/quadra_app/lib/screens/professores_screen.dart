@@ -70,7 +70,7 @@ class _ProfessoresScreenState extends State<ProfessoresScreen> {
         return Card(
           child: ListTile(
             leading: CircleAvatar(
-              backgroundColor: const Color(0xFF1B7A3D),
+              backgroundColor: Brand.green,
               child: Text(
                 p.nomeCompleto.isNotEmpty ? p.nomeCompleto[0].toUpperCase() : '?',
                 style: const TextStyle(color: Colors.white),

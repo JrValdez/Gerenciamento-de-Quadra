@@ -139,7 +139,7 @@ class _CaixaScreenState extends State<CaixaScreen> {
               children: [
                 _kpi('Abertura', moeda.format(c.valorAbertura), Icons.play_circle, Colors.blueGrey, cardW),
                 _kpi('Entradas', moeda.format(c.totalEntradas), Icons.arrow_downward,
-                    const Color(0xFF1B7A3D), cardW),
+                    Brand.green, cardW),
                 _kpi('Saídas', moeda.format(c.totalSaidas), Icons.arrow_upward, Colors.red, cardW),
                 _kpi('Saldo esperado', moeda.format(c.saldoEsperado),
                     Icons.account_balance_wallet, Colors.indigo, cardW),
@@ -218,16 +218,16 @@ class _CaixaScreenState extends State<CaixaScreen> {
     return Card(
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: (m.entrada ? const Color(0xFF1B7A3D) : Colors.red).withValues(alpha: 0.12),
+          backgroundColor: (m.entrada ? Brand.green : Colors.red).withValues(alpha: 0.12),
           child: Icon(m.entrada ? Icons.arrow_downward : Icons.arrow_upward,
-              color: m.entrada ? const Color(0xFF1B7A3D) : Colors.red),
+              color: m.entrada ? Brand.green : Colors.red),
         ),
         title: Text(m.descricao),
         subtitle: Text('${m.categoria} • ${formaPagamentoLabels[m.formaPagamento]} • ${dataHora.format(m.criadoEm)}'),
         trailing: Text(
           '${m.entrada ? '+' : '-'} ${moeda.format(m.valor)}',
           style: TextStyle(
-            color: m.entrada ? const Color(0xFF1B7A3D) : Colors.red,
+            color: m.entrada ? Brand.green : Colors.red,
             fontWeight: FontWeight.bold,
             fontSize: 16,
           ),

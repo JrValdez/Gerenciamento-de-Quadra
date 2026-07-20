@@ -94,7 +94,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text('Reserva solicitada! Confirmaremos em breve.'),
-              backgroundColor: Color(0xFF1B7A3D)),
+              backgroundColor: Brand.green),
         );
       }
     }
@@ -184,11 +184,11 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                               },
                               calendarStyle: CalendarStyle(
                                 todayDecoration: BoxDecoration(
-                                  color: const Color(0xFF1B7A3D).withValues(alpha: 0.35),
+                                  color: Brand.green.withValues(alpha: 0.35),
                                   shape: BoxShape.circle,
                                 ),
                                 selectedDecoration: const BoxDecoration(
-                                  color: Color(0xFF1B7A3D),
+                                  color: Brand.green,
                                   shape: BoxShape.circle,
                                 ),
                               ),
@@ -241,8 +241,8 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
     }
     return ActionChip(
       label: Text(label),
-      backgroundColor: const Color(0xFFE6F4EA),
-      side: const BorderSide(color: Color(0xFF1B7A3D)),
+      backgroundColor: Brand.greenTint,
+      side: const BorderSide(color: Brand.green),
       onPressed: () => _onTapSlot(i),
     );
   }
@@ -451,7 +451,7 @@ class _ReservaDialogState extends State<_ReservaDialog> {
             _linhaValor(
               'Desconto${_cupomAplicado != null ? ' (${_cupomAplicado!.codigo})' : ''}',
               '- ${moeda.format(_desconto)}',
-              cor: const Color(0xFF1B7A3D),
+              cor: Brand.green,
             ),
           ],
           const Divider(height: 16),
@@ -488,12 +488,12 @@ class _ReservaDialogState extends State<_ReservaDialog> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE6F4EA),
+                  color: Brand.greenTint,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.event_available, color: Color(0xFF1B7A3D)),
+                    const Icon(Icons.event_available, color: Brand.green),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -521,7 +521,7 @@ class _ReservaDialogState extends State<_ReservaDialog> {
                     label: Text(_fmtDuracao(d)),
                     selected: sel,
                     onSelected: (_) => setState(() => _duracaoMin = d),
-                    selectedColor: const Color(0xFF1B7A3D),
+                    selectedColor: Brand.green,
                     labelStyle: TextStyle(
                         color: sel ? Colors.white : null,
                         fontWeight: sel ? FontWeight.w600 : null),
@@ -561,7 +561,7 @@ class _ReservaDialogState extends State<_ReservaDialog> {
                         labelText: 'Cupom de desconto (opcional)',
                         errorText: _cupomErro,
                         suffixIcon: _cupomAplicado != null
-                            ? const Icon(Icons.check_circle, color: Color(0xFF1B7A3D))
+                            ? const Icon(Icons.check_circle, color: Brand.green)
                             : null,
                       ),
                       onChanged: (_) {

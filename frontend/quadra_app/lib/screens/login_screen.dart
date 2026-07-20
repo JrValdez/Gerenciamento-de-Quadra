@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../theme.dart';
 import 'package:provider/provider.dart';
 
 import '../api_client.dart';
@@ -63,7 +65,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Icon(Icons.sports_tennis, size: 48, color: Color(0xFF1B7A3D)),
+                    const Icon(Icons.sports_tennis, size: 48, color: Brand.green),
                     const SizedBox(height: 8),
                     Text('Entrar', textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.headlineSmall),

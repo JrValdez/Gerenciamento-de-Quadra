@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../theme.dart';
 import 'package:provider/provider.dart';
 
 import '../../api_client.dart';
@@ -157,7 +159,7 @@ class _ClassificacaoViewState extends State<ClassificacaoView> {
             ),
             const SizedBox(width: 16),
             Icon(c.tipo == 1 ? Icons.groups : Icons.person,
-                color: const Color(0xFF1B7A3D), size: 20),
+                color: Brand.green, size: 20),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -178,7 +180,7 @@ class _ClassificacaoViewState extends State<ClassificacaoView> {
               children: [
                 Text('${c.totalPontos}',
                     style: const TextStyle(
-                        fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF1B7A3D))),
+                        fontSize: 22, fontWeight: FontWeight.bold, color: Brand.green)),
                 const Text('pts', style: TextStyle(fontSize: 11, color: Colors.grey)),
               ],
             ),

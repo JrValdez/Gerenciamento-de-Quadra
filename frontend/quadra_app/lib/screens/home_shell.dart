@@ -68,7 +68,7 @@ class _HomeShellState extends State<HomeShell> {
               padding: const EdgeInsets.only(right: 12),
               child: CircleAvatar(
                 radius: 16,
-                backgroundColor: const Color(0xFF1B7A3D),
+                backgroundColor: Brand.green,
                 child: Text(
                   usuario.nomeCompleto.isNotEmpty
                       ? usuario.nomeCompleto[0].toUpperCase()
@@ -87,7 +87,7 @@ class _HomeShellState extends State<HomeShell> {
                   padding: const EdgeInsets.all(16),
                   child: Row(
                     children: [
-                      const Icon(Icons.sports_tennis, color: Color(0xFF1B7A3D), size: 28),
+                      const Icon(Icons.sports_tennis, color: Brand.green, size: 28),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(
@@ -116,7 +116,7 @@ class _HomeShellState extends State<HomeShell> {
                           leading: Icon(paginas[i].icon),
                           title: Text(paginas[i].label),
                           selected: i == _index,
-                          selectedTileColor: const Color(0xFFE7F3EB),
+                          selectedTileColor: Brand.greenSoft,
                           onTap: () {
                             setState(() => _index = i);
                             Navigator.pop(context);
@@ -155,7 +155,7 @@ class _HomeShellState extends State<HomeShell> {
               padding: const EdgeInsets.symmetric(vertical: 16),
               child: Column(
                 children: const [
-                  Icon(Icons.sports_tennis, color: Color(0xFF1B7A3D), size: 32),
+                  Icon(Icons.sports_tennis, color: Brand.green, size: 32),
                   SizedBox(height: 4),
                 ],
               ),
@@ -212,7 +212,7 @@ class _HomeShellState extends State<HomeShell> {
                           ],
                           CircleAvatar(
                             radius: 16,
-                            backgroundColor: const Color(0xFF1B7A3D),
+                            backgroundColor: Brand.green,
                             child: Text(
                               usuario.nomeCompleto.isNotEmpty
                                   ? usuario.nomeCompleto[0].toUpperCase()

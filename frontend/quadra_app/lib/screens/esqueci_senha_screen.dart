@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../theme.dart';
 import 'package:provider/provider.dart';
 
 import '../api_client.dart';
@@ -66,7 +68,7 @@ class _EsqueciSenhaScreenState extends State<EsqueciSenhaScreen> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Icon(Icons.lock_reset, size: 48, color: Color(0xFF1B7A3D)),
+          const Icon(Icons.lock_reset, size: 48, color: Brand.green),
           const SizedBox(height: 12),
           Text('Recuperar senha', textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.headlineSmall),
@@ -109,7 +111,7 @@ class _EsqueciSenhaScreenState extends State<EsqueciSenhaScreen> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Icon(Icons.mark_email_read, size: 48, color: Color(0xFF1B7A3D)),
+        const Icon(Icons.mark_email_read, size: 48, color: Brand.green),
         const SizedBox(height: 12),
         Text('Verifique seu e-mail', textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.headlineSmall),

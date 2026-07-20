@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../theme.dart';
 import 'package:provider/provider.dart';
 
 import '../api_client.dart';
@@ -41,7 +43,7 @@ class _RedefinirSenhaScreenState extends State<RedefinirSenhaScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text('Senha redefinida! Entre com a nova senha.'),
-            backgroundColor: Color(0xFF1B7A3D)),
+            backgroundColor: Brand.green),
       );
       Navigator.pushReplacementNamed(context, '/login');
     } on ApiException catch (e) {
@@ -78,7 +80,7 @@ class _RedefinirSenhaScreenState extends State<RedefinirSenhaScreen> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Icon(Icons.password, size: 48, color: Color(0xFF1B7A3D)),
+          const Icon(Icons.password, size: 48, color: Brand.green),
           const SizedBox(height: 12),
           Text('Criar nova senha', textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.headlineSmall),

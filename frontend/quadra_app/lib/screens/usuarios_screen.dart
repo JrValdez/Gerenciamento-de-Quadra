@@ -213,7 +213,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               if (u.papeis.contains(c))
-                                const Icon(Icons.check, size: 16, color: Color(0xFF1B7A3D))
+                                const Icon(Icons.check, size: 16, color: Brand.green)
                               else
                                 const SizedBox(width: 16),
                               const SizedBox(width: 8),
@@ -235,10 +235,10 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(u.ativo ? Icons.check_circle : Icons.cancel,
-                  size: 15, color: u.ativo ? const Color(0xFF1B7A3D) : Colors.grey),
+                  size: 15, color: u.ativo ? Brand.green : Colors.grey),
               const SizedBox(width: 4),
               Text(u.ativo ? 'Ativo' : 'Inativo',
-                  style: TextStyle(color: u.ativo ? const Color(0xFF1B7A3D) : Colors.grey)),
+                  style: TextStyle(color: u.ativo ? Brand.green : Colors.grey)),
             ],
           ),
           IconButton(
@@ -263,7 +263,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
         final info = Row(
           children: [
             CircleAvatar(
-              backgroundColor: const Color(0xFF1B7A3D),
+              backgroundColor: Brand.green,
               child: Text(
                 u.nomeCompleto.isNotEmpty ? u.nomeCompleto[0].toUpperCase() : '?',
                 style: const TextStyle(color: Colors.white),

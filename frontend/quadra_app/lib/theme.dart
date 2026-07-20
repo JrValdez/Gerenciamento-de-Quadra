@@ -7,6 +7,7 @@ class Brand {
   static const green = Color(0xFF1B7A3D);
   static const greenDark = Color(0xFF0E5A2C);
   static const greenSoft = Color(0xFFE7F3EB);
+  static const greenTint = Color(0xFFE6F4EA);
   static const amber = Color(0xFFF59E0B);
   static const ink = Color(0xFF0F1E17);
   static const slate = Color(0xFF5B6B63);

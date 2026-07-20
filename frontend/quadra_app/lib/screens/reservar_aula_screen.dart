@@ -80,7 +80,7 @@ class _ReservarAulaScreenState extends State<ReservarAulaScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text('Aula reservada e confirmada!'),
-              backgroundColor: Color(0xFF1B7A3D)),
+              backgroundColor: Brand.green),
         );
       }
     }
@@ -135,11 +135,11 @@ class _ReservarAulaScreenState extends State<ReservarAulaScreen> {
                   },
                   calendarStyle: CalendarStyle(
                     todayDecoration: BoxDecoration(
-                      color: const Color(0xFF1B7A3D).withValues(alpha: 0.35),
+                      color: Brand.green.withValues(alpha: 0.35),
                       shape: BoxShape.circle,
                     ),
                     selectedDecoration: const BoxDecoration(
-                      color: Color(0xFF1B7A3D),
+                      color: Brand.green,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -174,13 +174,13 @@ class _ReservarAulaScreenState extends State<ReservarAulaScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFE6F4EA),
+        color: Brand.greenTint,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF1B7A3D)),
+        border: Border.all(color: Brand.green),
       ),
       child: Row(
         children: [
-          const Icon(Icons.school, color: Color(0xFF1B7A3D)),
+          const Icon(Icons.school, color: Brand.green),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -210,9 +210,9 @@ class _ReservarAulaScreenState extends State<ReservarAulaScreen> {
     }
     return ActionChip(
       label: Text(label),
-      avatar: const Icon(Icons.check_circle, color: Color(0xFF1B7A3D), size: 18),
-      backgroundColor: const Color(0xFFE6F4EA),
-      side: const BorderSide(color: Color(0xFF1B7A3D)),
+      avatar: const Icon(Icons.check_circle, color: Brand.green, size: 18),
+      backgroundColor: Brand.greenTint,
+      side: const BorderSide(color: Brand.green),
       onPressed: () => _reservar(s),
     );
   }
@@ -283,12 +283,12 @@ class _ReservaAulaDialogState extends State<_ReservaAulaDialog> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFE6F4EA),
+                color: Brand.greenTint,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.event_available, color: Color(0xFF1B7A3D)),
+                  const Icon(Icons.event_available, color: Brand.green),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
