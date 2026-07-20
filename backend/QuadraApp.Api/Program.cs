@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using QuadraApp.Api.Data;
@@ -76,34 +77,52 @@ builder.Services
         // Revogação server-side: a cada requisição confere se o usuário ainda existe,
         // está ativo e se o security stamp do token bate com o atual. Assim, inativar
         // um usuário ou trocar a senha invalida imediatamente os tokens já emitidos
-        // (que, de outra forma, seguiriam válidos até expirar).
+        // (que, de outra forma, seguiriam válidos até expirar). O snapshot fica em
+        // cache por poucos segundos para não bater no banco em toda requisição; as
+        // operações que revogam (inativar/redefinir senha/excluir) limpam o cache,
+        // mantendo a revogação imediata.
         opt.Events = new JwtBearerEvents
         {
             OnTokenValidated = async ctx =>
             {
-                var userManager = ctx.HttpContext.RequestServices
-                    .GetRequiredService<UserManager<ApplicationUser>>();
                 var userId = ctx.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
-                var user = userId is null ? null : await userManager.FindByIdAsync(userId);
-
-                if (user is null || !user.Ativo)
+                if (userId is null)
                 {
                     ctx.Fail("Usuário inválido ou inativo.");
                     return;
                 }
 
-                if (userManager.SupportsUserSecurityStamp)
+                var cache = ctx.HttpContext.RequestServices.GetRequiredService<IMemoryCache>();
+                var snapshot = await cache.GetOrCreateAsync(AuthUserSnapshot.Chave(userId), async entry =>
                 {
-                    var stampToken = ctx.Principal?.FindFirstValue("sstamp");
-                    var stampAtual = await userManager.GetSecurityStampAsync(user);
-                    if (!string.Equals(stampToken, stampAtual, StringComparison.Ordinal))
-                        ctx.Fail("Sessão expirada. Faça login novamente.");
+                    entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(15);
+                    var userManager = ctx.HttpContext.RequestServices
+                        .GetRequiredService<UserManager<ApplicationUser>>();
+                    var user = await userManager.FindByIdAsync(userId);
+                    if (user is null) return null;
+                    var stamp = userManager.SupportsUserSecurityStamp
+                        ? await userManager.GetSecurityStampAsync(user)
+                        : string.Empty;
+                    return new AuthUserSnapshot(user.Ativo, stamp);
+                });
+
+                if (snapshot is null || !snapshot.Ativo)
+                {
+                    ctx.Fail("Usuário inválido ou inativo.");
+                    return;
                 }
+
+                var stampToken = ctx.Principal?.FindFirstValue("sstamp") ?? string.Empty;
+                if (!string.Equals(stampToken, snapshot.SecurityStamp, StringComparison.Ordinal))
+                    ctx.Fail("Sessão expirada. Faça login novamente.");
             }
         };
     });
 
 builder.Services.AddAuthorization();
+
+// Cache em memória do snapshot de revogação (ver OnTokenValidated).
+builder.Services.AddMemoryCache();
 
 // ----- CORS (Flutter web) -----
 // Dev: liberado (a porta do `flutter run` varia a cada execução). Produção: apenas

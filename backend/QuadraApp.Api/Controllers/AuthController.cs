@@ -4,8 +4,10 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using QuadraApp.Api.Data;
 using QuadraApp.Api.DTOs;
+using QuadraApp.Api.Infra;
 using QuadraApp.Api.Models;
 using QuadraApp.Api.Services;
 
@@ -22,6 +24,7 @@ public class AuthController : ControllerBase
     private readonly IEmailSender _emailSender;
     private readonly IConfiguration _config;
     private readonly ILogger<AuthController> _logger;
+    private readonly IMemoryCache _cache;
 
     public AuthController(
         UserManager<ApplicationUser> userManager,
@@ -30,7 +33,8 @@ public class AuthController : ControllerBase
         AppDbContext db,
         IEmailSender emailSender,
         IConfiguration config,
-        ILogger<AuthController> logger)
+        ILogger<AuthController> logger,
+        IMemoryCache cache)
     {
         _userManager = userManager;
         _signInManager = signInManager;
@@ -39,7 +43,15 @@ public class AuthController : ControllerBase
         _emailSender = emailSender;
         _config = config;
         _logger = logger;
+        _cache = cache;
     }
+
+    /// <summary>
+    /// Remove o snapshot de revogação em cache do usuário, para que a próxima requisição
+    /// releia o estado atual do banco (revogação imediata após inativar/redefinir/excluir).
+    /// </summary>
+    private void InvalidarSnapshot(Guid userId) =>
+        _cache.Remove(AuthUserSnapshot.Chave(userId.ToString()));
 
     /// <summary>True se o usuário autenticado é Admin.</summary>
     private bool SouAdmin() => User.IsInRole(Roles.Admin);
@@ -120,6 +132,8 @@ public class AuthController : ControllerBase
         if (!resultado.Succeeded)
             return BadRequest(new { erro = "Link inválido ou expirado. Solicite um novo." });
 
+        // A troca de senha rotaciona o security stamp: derruba os tokens antigos na hora.
+        InvalidarSnapshot(user.Id);
         return Ok(new { mensagem = "Senha redefinida com sucesso. Já pode entrar com a nova senha." });
     }
 
@@ -245,6 +259,8 @@ public class AuthController : ControllerBase
 
         user.Ativo = req.Ativo;
         await _userManager.UpdateAsync(user);
+        // Inativar deve derrubar a sessão imediatamente (não esperar o cache expirar).
+        InvalidarSnapshot(user.Id);
         var papeis = await _userManager.GetRolesAsync(user);
         return Ok(new UsuarioDto(user.Id, user.NomeCompleto, user.Email!, papeis, user.Ativo, user.PhoneNumber));
     }
@@ -316,6 +332,7 @@ public class AuthController : ControllerBase
         if (!result.Succeeded)
             return BadRequest(new { erro = string.Join("; ", result.Errors.Select(e => e.Description)) });
 
+        InvalidarSnapshot(user.Id);
         return NoContent();
     }
 }
