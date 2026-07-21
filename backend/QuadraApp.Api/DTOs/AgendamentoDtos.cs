@@ -19,7 +19,9 @@ public record AgendamentoDto(
     decimal ValorDesconto,
     string? CupomCodigo);
 
-/// <summary>Agendamento público (cliente sem login). Nome, telefone e e-mail obrigatórios.</summary>
+/// <summary>Agendamento público (cliente sem login). Nome, telefone e e-mail obrigatórios.
+/// Se <c>Senha</c> for informada, o usuário Cliente é criado com senha para que possa
+/// logar e acompanhar a reserva.</summary>
 public record AgendamentoPublicoRequest(
     [Required] Guid QuadraId,
     [Required] DateTime Inicio,
@@ -27,8 +29,19 @@ public record AgendamentoPublicoRequest(
     [Required] string NomeCliente,
     [Required] string TelefoneCliente,
     [Required, EmailAddress] string EmailCliente,
+    string? Senha = null,
     string? Observacoes = null,
     string? CupomCodigo = null);
+
+/// <summary>Consulta pública de agendamentos por e-mail e telefone (sem login).</summary>
+public record AgendamentoConsultaRequest(
+    [Required, EmailAddress] string Email,
+    [Required] string Telefone);
+
+/// <summary>Cancelamento de agendamento pelo próprio cliente.</summary>
+public record AgendamentoCancelarRequest(
+    [Required, EmailAddress] string Email,
+    [Required] string Telefone);
 
 /// <summary>Criação por atendente/admin (pode já confirmar).</summary>
 public record AgendamentoCreateRequest(

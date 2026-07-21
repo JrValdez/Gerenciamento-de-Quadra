@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../api_client.dart';
 import '../models.dart';
 import '../theme.dart';
+import '../widgets/phone_formatter.dart';
 import '../widgets/async_view.dart';
 
 /// Tela do professor: cadastrar e consultar alunos (papel Aluno).
@@ -76,7 +77,7 @@ class _AlunosScreenState extends State<AlunosScreen> {
                       ),
                       subtitle: Text(
                         a.telefone.isNotEmpty
-                            ? '${a.email} • ${a.telefone}'
+                            ? '${a.email} • ${formatPhone(a.telefone)}'
                             : a.email,
                       ),
                       trailing: const Chip(
@@ -174,10 +175,11 @@ class _AlunoDialogState extends State<_AlunoDialog> {
               TextFormField(
                 controller: _telefone,
                 keyboardType: TextInputType.phone,
+                inputFormatters: [PhoneInputFormatter()],
                 decoration: const InputDecoration(
                   labelText: 'Telefone / WhatsApp',
                 ),
-                validator: (v) => (v == null || v.trim().length < 8)
+                validator: (v) => (v == null || v.replaceAll(RegExp(r'[^\d]'), '').length < 10)
                     ? 'Telefone inválido'
                     : null,
               ),

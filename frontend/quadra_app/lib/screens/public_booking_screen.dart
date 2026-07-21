@@ -6,6 +6,7 @@ import 'package:table_calendar/table_calendar.dart';
 import '../api_client.dart';
 import '../models.dart';
 import '../theme.dart';
+import '../widgets/phone_formatter.dart';
 
 class PublicBookingScreen extends StatefulWidget {
   const PublicBookingScreen({super.key});
@@ -117,6 +118,11 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
               icon: const Icon(Icons.emoji_events),
             ),
             IconButton(
+              tooltip: 'Minhas reservas',
+              onPressed: () => Navigator.pushNamed(context, '/login'),
+              icon: const Icon(Icons.person_outline),
+            ),
+            IconButton(
               tooltip: 'Área do funcionário',
               onPressed: () => Navigator.pushNamed(context, '/login'),
               icon: const Icon(Icons.lock_outline),
@@ -129,8 +135,13 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
             ),
             TextButton.icon(
               onPressed: () => Navigator.pushNamed(context, '/login'),
+              icon: const Icon(Icons.person_outline),
+              label: const Text('Área do cliente'),
+            ),
+            TextButton.icon(
+              onPressed: () => Navigator.pushNamed(context, '/login'),
               icon: const Icon(Icons.lock_outline),
-              label: const Text('Área do funcionário'),
+              label: const Text('Funcionário'),
             ),
           ],
           const SizedBox(width: 8),
@@ -222,6 +233,14 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                             ],
                           ),
                         const SizedBox(height: 40),
+                        Center(
+                          child: TextButton.icon(
+                            onPressed: () => Navigator.pushNamed(context, '/login'),
+                            icon: const Icon(Icons.login, size: 18),
+                            label: const Text('Já tem cadastro? Acompanhe sua reserva'),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
                       ],
                     ),
                   ),
@@ -333,6 +352,7 @@ class _ReservaDialogState extends State<_ReservaDialog> {
   final _nome = TextEditingController();
   final _telefone = TextEditingController();
   final _email = TextEditingController();
+  final _senha = TextEditingController();
   final _cupom = TextEditingController();
   late int _duracaoMin;
   bool _enviando = false;
@@ -367,6 +387,7 @@ class _ReservaDialogState extends State<_ReservaDialog> {
     _nome.dispose();
     _telefone.dispose();
     _email.dispose();
+    _senha.dispose();
     _cupom.dispose();
     super.dispose();
   }
@@ -417,8 +438,9 @@ class _ReservaDialogState extends State<_ReservaDialog> {
         'inicio': widget.inicio.toUtc().toIso8601String(),
         'fim': _fim.toUtc().toIso8601String(),
         'nomeCliente': _nome.text.trim(),
-        'telefoneCliente': _telefone.text.trim(),
+        'telefoneCliente': unformatPhone(_telefone.text),
         'emailCliente': _email.text.trim(),
+        if (_senha.text.trim().length >= 6) 'senha': _senha.text.trim(),
         if (_cupomAplicado != null) 'cupomCodigo': _cupomAplicado!.codigo,
       });
       if (mounted) Navigator.pop(context, true);
@@ -538,8 +560,10 @@ class _ReservaDialogState extends State<_ReservaDialog> {
               TextFormField(
                 controller: _telefone,
                 keyboardType: TextInputType.phone,
+                inputFormatters: [PhoneInputFormatter()],
                 decoration: const InputDecoration(labelText: 'Telefone / WhatsApp'),
-                validator: (v) => (v == null || v.trim().length < 8) ? 'Telefone inválido' : null,
+                validator: (v) =>
+                    (v == null || v.replaceAll(RegExp(r'[^\d]'), '').length < 10) ? 'Telefone inválido' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -548,6 +572,18 @@ class _ReservaDialogState extends State<_ReservaDialog> {
                 decoration: const InputDecoration(labelText: 'E-mail'),
                 validator: (v) =>
                     (v == null || !v.contains('@')) ? 'E-mail inválido' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _senha,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: 'Criar senha (opcional)',
+                  helperText: 'Mín. 6 caracteres. Crie para acompanhar suas reservas.',
+                  helperMaxLines: 2,
+                ),
+                validator: (v) =>
+                    (v != null && v.isNotEmpty && v.length < 6) ? 'Mínimo 6 caracteres' : null,
               ),
               const SizedBox(height: 12),
               Row(

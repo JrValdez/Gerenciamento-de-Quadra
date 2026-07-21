@@ -32,6 +32,7 @@ class Usuario {
   bool get isProfessor => papeis.contains('Professor');
   bool get isAluno => papeis.contains('Aluno');
   bool get isInterno => isAdmin || isAtendente;
+  bool get isCliente => papeis.contains('Cliente');
 
   /// Quem acessa o painel administrativo (equipe + professor).
   bool get isPainel => isAdmin || isAtendente || isProfessor;

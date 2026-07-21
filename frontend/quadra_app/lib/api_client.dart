@@ -158,8 +158,26 @@ class ApiClient {
       Agendamento.fromJson(await _patch('/agendamentos/$id/status', {'status': status}));
 
   /// Reserva de quadra feita pelo professor logado para dar aula.
-  Future<Agendamento> reservarAula(Map<String, dynamic> body) async =>
-      Agendamento.fromJson(await _post('/agendamentos/aula', body));
+    Future<Agendamento> reservarAula(Map<String, dynamic> body) async =>
+        Agendamento.fromJson(await _post('/agendamentos/aula', body));
+
+    // ---------- Cliente: minhas reservas ----------
+    /// Consulta pública de agendamentos por e-mail + telefone (sem login).
+    Future<List<Agendamento>> consultaPublica(String email, String telefone) async {
+      final data = await _get('/agendamentos/publico/consulta',
+          {'email': email, 'telefone': telefone});
+      return (data as List).map((e) => Agendamento.fromJson(e)).toList();
+    }
+
+    /// Lista as reservas do cliente logado.
+    Future<List<Agendamento>> minhasReservas() async {
+      final data = await _get('/agendamentos/minhas');
+      return (data as List).map((e) => Agendamento.fromJson(e)).toList();
+    }
+
+    /// Cancela a própria reserva (cliente logado).
+    Future<Agendamento> cancelarReserva(String id) async =>
+        Agendamento.fromJson(await _patch('/agendamentos/$id/cancelar', {}));
 
   // ---------- Professores ----------
   Future<List<Professor>> professores() async {

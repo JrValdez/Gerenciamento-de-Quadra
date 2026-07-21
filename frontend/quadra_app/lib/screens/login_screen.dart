@@ -37,6 +37,8 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.pushReplacementNamed(context, '/painel');
       } else if (u.isAluno) {
         Navigator.pushReplacementNamed(context, '/aluno');
+      } else if (u.isCliente) {
+        Navigator.pushReplacementNamed(context, '/minhas-reservas');
       } else {
         setState(() => _erro = 'Este acesso é para funcionários e alunos.');
         auth.logout();

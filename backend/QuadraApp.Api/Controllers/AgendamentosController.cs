@@ -33,12 +33,12 @@ public class AgendamentosController : ControllerBase
 
     /// <summary>
     /// Garante que quem reservou uma quadra pelo calendário exista como usuário
-    /// da categoria Cliente. É best-effort: se a criação falhar, a reserva continua
-    /// válida. Não altera contas já existentes (ex.: Aluno/Atendente que reservam).
+    /// da categoria Cliente. Se <paramref name="senha"/> for informada, cria o
+    /// usuário com senha (permitindo login). É best-effort: se a criação falhar,
+    /// a reserva continua válida. Não altera contas já existentes.
     /// </summary>
-    private async Task EnsureClienteAsync(string? nome, string? email)
+    private async Task EnsureClienteAsync(string? nome, string? email, string? senha = null)
     {
-        // UserManager não expõe CancellationToken nestas operações do Identity.
         if (string.IsNullOrWhiteSpace(email) || !email.Contains('@')) return;
 
         var emailNormalizado = email.Trim();
@@ -52,9 +52,12 @@ public class AgendamentosController : ControllerBase
             NomeCompleto = string.IsNullOrWhiteSpace(nome) ? emailNormalizado : nome.Trim(),
         };
 
-        // Criado sem senha: aparece na tela de Usuários como Cliente; um Admin
-        // pode definir uma senha depois caso o cliente precise de acesso.
-        var result = await _userManager.CreateAsync(user);
+        IdentityResult result;
+        if (!string.IsNullOrWhiteSpace(senha) && senha.Length >= 6)
+            result = await _userManager.CreateAsync(user, senha);
+        else
+            result = await _userManager.CreateAsync(user);
+
         if (result.Succeeded)
             await _userManager.AddToRoleAsync(user, Roles.Cliente);
     }
@@ -122,12 +125,81 @@ public class AgendamentosController : ControllerBase
             // do mesmo horário — só uma passa, a outra cai aqui.
             return Conflict(new { erro = "Já existe reserva nesse horário." });
         }
-        await EnsureClienteAsync(req.NomeCliente, req.EmailCliente);
-        ag.Quadra = quadra;
-        return CreatedAtAction(nameof(Obter), new { id = ag.Id }, Map(ag));
-    }
+        await EnsureClienteAsync(req.NomeCliente, req.EmailCliente, req.Senha);
+                ag.Quadra = quadra;
+                return CreatedAtAction(nameof(Obter), new { id = ag.Id }, Map(ag));
+            }
 
-    // ----- Disponibilidade (público) -----
+            // ----- Público: consultar agendamentos por e-mail + telefone -----
+            [HttpGet("publico/consulta")]
+            [AllowAnonymous]
+            [EnableRateLimiting("publico")]
+            public async Task<ActionResult<IEnumerable<AgendamentoDto>>> ConsultaPublica(
+                [FromQuery] string email, [FromQuery] string telefone, CancellationToken ct)
+            {
+                if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(telefone))
+                    return BadRequest(new { erro = "E-mail e telefone são obrigatórios." });
+
+                var emailNorm = email.Trim().ToLowerInvariant();
+                var itens = await _db.Agendamentos.AsNoTracking()
+                    .Include(a => a.Quadra)
+                    .Where(a => a.EmailCliente != null &&
+                                a.EmailCliente.ToLower() == emailNorm &&
+                                a.TelefoneCliente == telefone.Trim())
+                    .OrderByDescending(a => a.Inicio)
+                    .Select(a => Map(a))
+                    .ToListAsync(ct);
+                return Ok(itens);
+            }
+
+            // ----- Cliente logado: minhas reservas -----
+            [HttpGet("minhas")]
+            [Authorize(Roles = Roles.Cliente)]
+            public async Task<ActionResult<IEnumerable<AgendamentoDto>>> MinhasReservas(CancellationToken ct)
+            {
+                var usuario = await _userManager.FindByIdAsync(UsuarioAtual()!.Value.ToString());
+                if (usuario is null) return Unauthorized();
+
+                var email = usuario.Email ?? "";
+                var itens = await _db.Agendamentos.AsNoTracking()
+                    .Include(a => a.Quadra)
+                    .Where(a => a.EmailCliente != null && a.EmailCliente.ToLower() == email.ToLower())
+                    .OrderByDescending(a => a.Inicio)
+                    .Select(a => Map(a))
+                    .ToListAsync(ct);
+                return Ok(itens);
+            }
+
+            // ----- Cliente logado: cancelar própria reserva -----
+            [HttpPatch("{id:guid}/cancelar")]
+            [Authorize(Roles = Roles.Cliente)]
+            public async Task<ActionResult<AgendamentoDto>> CancelarMinhaReserva(Guid id, CancellationToken ct)
+            {
+                var usuarioId = UsuarioAtual();
+                if (usuarioId is null) return Unauthorized();
+
+                var usuario = await _userManager.FindByIdAsync(usuarioId.Value.ToString());
+                if (usuario is null || usuario.Email is null)
+                    return Unauthorized();
+
+                var a = await _db.Agendamentos.Include(x => x.Quadra)
+                    .FirstOrDefaultAsync(x => x.Id == id, ct);
+                if (a is null) return NotFound();
+
+                if (!string.Equals(a.EmailCliente, usuario.Email, StringComparison.OrdinalIgnoreCase))
+                    return StatusCode(StatusCodes.Status403Forbidden,
+                        new { erro = "Você só pode cancelar suas próprias reservas." });
+
+                if (a.Status == StatusAgendamento.Cancelado || a.Status == StatusAgendamento.Concluido)
+                    return BadRequest(new { erro = "Reserva já está cancelada ou concluída." });
+
+                if (a.Inicio <= DateTime.UtcNow)
+                    return BadRequest(new { erro = "Não é possível cancelar uma reserva que já passou." });
+
+                a.Status = StatusAgendamento.Cancelado;
+                await _db.SaveChangesAsync(ct);
+                return Ok(Map(a));
+            }
     [HttpGet("disponibilidade")]
     [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<DisponibilidadeSlot>>> Disponibilidade(

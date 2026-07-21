@@ -12,6 +12,7 @@ import 'screens/esqueci_senha_screen.dart';
 import 'screens/redefinir_senha_screen.dart';
 import 'screens/home_shell.dart';
 import 'screens/aluno_shell.dart';
+import 'screens/minhas_reservas_screen.dart';
 
 // Parâmetros do link de redefinição, lidos da URL em main() e usados pela rota.
 String _resetEmail = '';
@@ -40,13 +41,15 @@ Future<void> main() async {
   } else {
     // Restaura sessão salva antes de decidir a tela inicial.
     final restaurado = await auth.tryRestore();
-    if (restaurado) {
-      if (auth.usuario!.isPainel) {
-        rota = '/painel';
-      } else if (auth.usuario!.isAluno) {
-        rota = '/aluno';
-      }
-    }
+        if (restaurado) {
+          if (auth.usuario!.isPainel) {
+            rota = '/painel';
+          } else if (auth.usuario!.isAluno) {
+            rota = '/aluno';
+          } else if (auth.usuario!.isCliente) {
+            rota = '/minhas-reservas';
+          }
+        }
   }
   runApp(QuadraApp(api: api, auth: auth, rotaInicial: rota));
 }
@@ -71,6 +74,7 @@ class QuadraApp extends StatelessWidget {
         RedefinirSenhaScreen(email: _resetEmail, token: _resetToken),
     '/painel': (_) => const HomeShell(),
     '/aluno': (_) => const AlunoShell(),
+    '/minhas-reservas': (_) => const MinhasReservasScreen(),
   };
 
   @override

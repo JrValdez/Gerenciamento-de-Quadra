@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../api_client.dart';
 import '../models.dart';
 import '../theme.dart';
+import '../widgets/phone_formatter.dart';
 
 class AgendamentosScreen extends StatefulWidget {
   const AgendamentosScreen({super.key});
@@ -154,7 +155,7 @@ class _AgendamentosScreenState extends State<AgendamentosScreen> {
                       ],
                     ),
                     if (a.telefoneCliente.isNotEmpty || a.emailCliente.isNotEmpty)
-                      Text('${a.telefoneCliente} • ${a.emailCliente}',
+                      Text('${formatPhone(a.telefoneCliente)} • ${a.emailCliente}',
                           style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis),

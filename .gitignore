@@ -14,3 +14,10 @@ frontend/quadra_app/.dart_tool/
 
 # Segredos de deploy
 deploy/.env
+
+# Credenciais
+CREDENCIAIS.md
+MELHORIAS-PENDENTES.md
+seed_data.sh
+seed_final.sh
+seed_remaining.sh
